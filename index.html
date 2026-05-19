@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FitTrack">
+<meta name="theme-color" content="#0F6E56">
+<title>FitTrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --green: #0F6E56; --green-light: #1D9E75; --green-pale: #E1F5EE; --green-mid: #5DCAA5;
+  --amber: #BA7517; --amber-pale: #FAEEDA;
+  --purple: #3C3489; --purple-pale: #EEEDFE;
+  --coral: #993C1D; --coral-pale: #FAECE7;
+  --text: #1a1a18; --text2: #5F5E5A; --text3: #888780;
+  --bg: #f5f5f2; --card: #ffffff; --border: rgba(0,0,0,0.09);
+  --radius: 16px; --radius-sm: 10px;
+  --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); }
+#app { display: flex; flex-direction: column; height: 100%; max-width: 430px; margin: 0 auto; background: var(--bg); position: relative; }
+
+/* STATUS BAR */
+.status-bar { background: var(--green); padding: env(safe-area-inset-top, 12px) 20px 0; min-height: calc(env(safe-area-inset-top, 0px) + 44px); display: flex; align-items: flex-end; padding-bottom: 12px; }
+.status-bar h1 { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
+.status-bar .date { font-size: 12px; color: rgba(255,255,255,0.7); margin-left: auto; font-family: var(--mono); }
+
+/* NAV */
+.nav { display: flex; background: var(--card); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; cursor: pointer; color: var(--text3); transition: color .2s; font-size: 10px; font-weight: 500; border: none; background: none; }
+.nav-btn i { font-size: 22px; }
+.nav-btn.active { color: var(--green-light); }
+
+/* SCREENS */
+.screens { flex: 1; overflow: hidden; position: relative; }
+.screen { position: absolute; inset: 0; overflow-y: auto; padding: 16px; display: none; flex-direction: column; gap: 12px; }
+.screen.active { display: flex; }
+
+/* CARDS */
+.card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; }
+.card-label { font-size: 10px; font-weight: 600; letter-spacing: .07em; color: var(--text3); text-transform: uppercase; margin-bottom: 10px; }
+.card-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.card-sub { font-size: 13px; color: var(--text2); margin-top: 2px; line-height: 1.5; }
+
+/* METRICS */
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metric { background: var(--card); border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 14px; }
+.metric-val { font-size: 26px; font-weight: 600; color: var(--text); letter-spacing: -1px; font-family: var(--mono); }
+.metric-unit { font-size: 13px; font-weight: 400; color: var(--text3); }
+.metric-lbl { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* PROGRESS BAR */
+.prog-track { height: 6px; background: var(--bg); border-radius: 99px; overflow: hidden; margin: 8px 0 4px; }
+.prog-fill { height: 100%; border-radius: 99px; background: var(--green-light); transition: width .5s ease; }
+.prog-fill.amber { background: var(--amber); }
+
+/* BADGE */
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px; }
+.badge-green { background: var(--green-pale); color: var(--green); }
+.badge-amber { background: var(--amber-pale); color: var(--amber); }
+.badge-purple { background: var(--purple-pale); color: var(--purple); }
+.badge-coral { background: var(--coral-pale); color: var(--coral); }
+
+/* CLAUDE BUBBLE */
+.claude-bubble { border-radius: var(--radius); padding: 14px; }
+.claude-bubble.purple { background: var(--purple-pale); }
+.claude-bubble.amber { background: var(--amber-pale); }
+.claude-bubble.green { background: var(--green-pale); }
+.claude-header { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; margin-bottom: 6px; }
+.claude-header.purple { color: var(--purple); }
+.claude-header.amber { color: var(--amber); }
+.claude-header.green { color: var(--green); }
+.claude-msg { font-size: 13px; line-height: 1.6; }
+.claude-msg.purple { color: #26215C; }
+.claude-msg.amber { color: #412402; }
+.claude-msg.green { color: #04342C; }
+.claude-loading { font-size: 13px; color: var(--text3); font-style: italic; }
+
+/* INPUTS */
+input[type=number], input[type=date], input[type=text] {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: var(--font); font-size: 14px; background: var(--bg); color: var(--text);
+  outline: none; transition: border-color .2s;
+}
+input:focus { border-color: var(--green-light); }
+.input-row { display: flex; gap: 8px; }
+.input-row input { flex: 1; }
+
+/* BUTTON */
+.btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 20px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-family: var(--font); font-size: 14px; font-weight: 600; transition: opacity .15s, transform .1s; width: 100%; }
+.btn:active { transform: scale(0.98); }
+.btn-green { background: var(--green-light); color: #fff; }
+.btn-ghost { background: transparent; color: var(--green-light); border: 1px solid var(--border); }
+
+/* MEAL ROW */
+.meal-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.meal-row:last-child { border-bottom: none; }
+.meal-info { flex: 1; }
+.meal-name { font-size: 13px; font-weight: 500; color: var(--text); }
+.meal-kr { font-size: 11px; color: var(--text3); }
+.meal-macros { text-align: right; font-size: 12px; color: var(--text2); font-family: var(--mono); }
+.meal-del { background: none; border: none; color: var(--text3); cursor: pointer; padding: 4px; font-size: 16px; }
+
+/* SEARCH */
+.search-wrap { position: relative; }
+.search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 16px; pointer-events: none; }
+.search-wrap input { padding-left: 36px; }
+.meal-options { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-top: 4px; overflow: hidden; max-height: 200px; overflow-y: auto; }
+.meal-opt { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 13px; transition: background .1s; }
+.meal-opt:last-child { border-bottom: none; }
+.meal-opt:hover, .meal-opt:active { background: var(--bg); }
+.meal-opt-name { font-weight: 500; color: var(--text); }
+.meal-opt-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+/* WORKOUT */
+.exercise-row { padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.exercise-row:last-child { border-bottom: none; }
+.ex-header { display: flex; align-items: center; gap: 10px; }
+.ex-check { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--border); background: var(--bg); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .2s; }
+.ex-check.done { background: var(--green-light); border-color: var(--green-light); }
+.ex-check i { font-size: 13px; color: #fff; }
+.ex-name { font-size: 14px; font-weight: 500; color: var(--text); flex: 1; }
+.ex-sets { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+.ex-expand { font-size: 18px; color: var(--text3); transition: transform .2s; }
+.ex-expand.open { transform: rotate(180deg); }
+.ex-detail { overflow: hidden; max-height: 0; transition: max-height .35s ease; }
+.ex-detail.open { max-height: 500px; }
+.ex-detail-inner { padding-top: 12px; }
+.anim-stage { background: var(--green-pale); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; height: 130px; margin-bottom: 10px; }
+.cue { display: flex; gap: 8px; margin-bottom: 6px; font-size: 12px; color: var(--text2); line-height: 1.5; }
+.cue-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-light); flex-shrink: 0; margin-top: 5px; }
+.set-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.set-row:last-child { border-bottom: none; }
+.set-num { font-size: 12px; color: var(--text3); width: 36px; font-family: var(--mono); }
+.set-input { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; font-family: var(--mono); background: var(--bg); color: var(--text); width: 100%; }
+.set-check { width: 26px; height: 26px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .2s; }
+.set-check.done { background: var(--green-light); border-color: var(--green-light); }
+.set-check i { font-size: 14px; color: #fff; }
+.tags { display: flex; gap: 5px; flex-wrap: wrap; margin: 6px 0; }
+.muscle-tag { background: var(--bg); border: 1px solid var(--border); border-radius: 99px; font-size: 10px; color: var(--text2); padding: 2px 8px; }
+
+/* PROGRESS SCREEN */
+.weight-chart-wrap { position: relative; height: 180px; }
+.streak-grid { display: flex; gap: 5px; flex-wrap: wrap; }
+.streak-day { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; }
+.streak-day.done { background: var(--green-light); color: #fff; }
+.streak-day.partial { background: var(--green-pale); color: var(--green); }
+.streak-day.empty { background: var(--bg); border: 1px solid var(--border); color: var(--text3); }
+
+/* DIVIDER */
+.divider { height: 1px; background: var(--border); }
+
+/* TOTALS BAR */
+.totals-bar { background: var(--green); border-radius: var(--radius-sm); padding: 12px 16px; display: flex; gap: 20px; }
+.total-item .total-lbl { font-size: 10px; color: rgba(255,255,255,0.65); margin-bottom: 2px; }
+.total-item .total-val { font-size: 18px; font-weight: 600; color: #fff; font-family: var(--mono); }
+.total-item .total-sub { font-size: 10px; color: rgba(255,255,255,0.5); }
+
+/* SCROLL helper */
+::-webkit-scrollbar { display: none; }
+
+/* ANIMATIONS FOR FIGURES */
+@keyframes pressUp { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
+@keyframes curle { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(-35deg)} }
+@keyframes squat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(14px)} }
+@keyframes rdl { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(30deg)} }
+@keyframes lateral { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(-50deg)} }
+@keyframes row { 0%,100%{transform:translateX(0)} 50%{transform:translateX(14px)} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="status-bar">
+    <h1>FitTrack</h1>
+    <span class="date" id="hdr-date"></span>
+  </div>
+
+  <div class="screens">
+    <!-- TODAY -->
+    <div class="screen active" id="screen-today">
+      <div id="claude-notice"></div>
+
+      <div class="card">
+        <div class="card-label">Today's weight</div>
+        <div class="input-row" style="margin-bottom:10px">
+          <input type="number" id="am-weight" step="0.1" placeholder="Morning (kg)">
+          <input type="number" id="pm-weight" step="0.1" placeholder="Night (kg)">
+        </div>
+        <button class="btn btn-green" onclick="logWeight()"><i class="ti ti-device-floppy"></i> Save weight</button>
+        <div id="weight-saved" style="font-size:12px;color:var(--green-light);margin-top:8px;min-height:16px"></div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-val" id="t-kcal">0<span class="metric-unit"> kcal</span></div>
+          <div class="metric-lbl">Calories logged</div>
+          <div class="prog-track"><div class="prog-fill" id="kcal-bar" style="width:0%"></div></div>
+          <div style="font-size:11px;color:var(--text3)" id="kcal-remain">1,550 remaining</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" id="t-prot">0<span class="metric-unit"> g</span></div>
+          <div class="metric-lbl">Protein logged</div>
+          <div class="prog-track"><div class="prog-fill amber" id="prot-bar" style="width:0%"></div></div>
+          <div style="font-size:11px;color:var(--text3)" id="prot-remain">110g remaining</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Today's workout</div>
+        <div id="today-workout-summary"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Stats</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div><div style="font-size:11px;color:var(--text3)">Current</div><div style="font-size:20px;font-weight:600;font-family:var(--mono)" id="stat-current">—</div></div>
+          <div><div style="font-size:11px;color:var(--text3)">Lost</div><div style="font-size:20px;font-weight:600;font-family:var(--mono);color:var(--green-light)" id="stat-lost">—</div></div>
+          <div><div style="font-size:11px;color:var(--text3)">To goal</div><div style="font-size:20px;font-weight:600;font-family:var(--mono);color:var(--amber)" id="stat-togo">18.0</div></div>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost" onclick="sendDailyReport()"><i class="ti ti-message-chatbot"></i> Send daily report to Claude ↗</button>
+    </div>
+
+    <!-- MEALS -->
+    <div class="screen" id="screen-meals">
+      <div class="totals-bar">
+        <div class="total-item"><div class="total-lbl">Calories</div><div class="total-val" id="m-kcal">0</div><div class="total-sub">/ 1,550 kcal</div></div>
+        <div class="total-item"><div class="total-lbl">Protein</div><div class="total-val" id="m-prot">0</div><div class="total-sub">/ 110 g</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Search meals</div>
+        <div class="search-wrap">
+          <i class="ti ti-search"></i>
+          <input type="text" id="meal-search" placeholder="Search Korean meals..." oninput="filterMeals()">
+        </div>
+        <div class="meal-options" id="meal-options" style="display:none"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Describe a meal</div>
+        <input type="text" id="meal-describe" placeholder="e.g. 순두부찌개 with ½ rice..." style="margin-bottom:8px">
+        <button class="btn btn-ghost" onclick="analyseMeal()"><i class="ti ti-sparkles"></i> Analyse with Claude ↗</button>
+      </div>
+
+      <div class="card" id="meal-log-card">
+        <div class="card-label">Today's log</div>
+        <div id="meal-log-list"><div style="font-size:13px;color:var(--text3);padding:8px 0">No meals logged yet.</div></div>
+      </div>
+    </div>
+
+    <!-- WORKOUT -->
+    <div class="screen" id="screen-workout">
+      <div class="card" id="workout-header-card"></div>
+      <div class="card" id="exercise-list"></div>
+      <div id="workout-claude-tip"></div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="screen" id="screen-progress">
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-val" id="p-current">—</div>
+          <div class="metric-lbl">Current (kg)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" id="p-lost" style="color:var(--green-light)">—</div>
+          <div class="metric-lbl">Lost (kg)</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Weight trend</div>
+        <div class="weight-chart-wrap"><canvas id="weight-chart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Goal progress · 75 → 57 kg</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span>75 kg</span><span>57 kg</span></div>
+        <div class="prog-track" style="height:10px"><div class="prog-fill" id="goal-bar" style="width:0%"></div></div>
+        <div style="font-size:12px;color:var(--text2);margin-top:6px" id="goal-text">18 kg to go</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Workout streak — this week</div>
+        <div class="streak-grid" id="streak-grid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Weekly Claude review</div>
+        <div id="progress-claude"></div>
+        <button class="btn btn-ghost" style="margin-top:12px" onclick="getWeeklyReview()"><i class="ti ti-refresh"></i> Get weekly review ↗</button>
+      </div>
+    </div>
+    <!-- SETTINGS -->
+    <div class="screen" id="screen-settings">
+      <div class="card">
+        <div class="card-label">Claude API key</div>
+        <div class="card-sub" style="margin-bottom:12px">Paste your Anthropic API key to enable live Claude feedback inside the app — meal analysis, daily notices, and weekly reviews.</div>
+        <div style="position:relative;margin-bottom:8px">
+          <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." style="padding-right:44px">
+          <button onclick="toggleKeyVis()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px" id="key-eye-btn"><i class="ti ti-eye" id="key-eye-icon"></i></button>
+        </div>
+        <button class="btn btn-green" onclick="saveApiKey()" style="margin-bottom:8px"><i class="ti ti-device-floppy"></i> Save API key</button>
+        <div id="key-status" style="font-size:12px;min-height:16px;color:var(--green-light)"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">API key status</div>
+        <div id="key-status-card" style="display:flex;align-items:center;gap:10px;padding:4px 0">
+          <div id="key-dot" style="width:10px;height:10px;border-radius:50%;background:var(--border);flex-shrink:0"></div>
+          <div id="key-status-text" style="font-size:13px;color:var(--text2)">No key saved</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">How to get a key</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:var(--green-pale);color:var(--green);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.5">Go to <span style="font-family:var(--mono);font-size:12px;color:var(--green)">platform.anthropic.com</span> and sign up</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:var(--green-pale);color:var(--green);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.5">Go to <strong style="font-weight:500">API Keys</strong> in the left menu → Create Key</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:var(--green-pale);color:var(--green);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.5">Add a payment method under <strong style="font-weight:500">Billing</strong> — usage is ~$1–2/month</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:var(--green-pale);color:var(--green);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.5">Copy your key and paste it above</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Your profile</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text2)">
+          <div style="display:flex;justify-content:space-between"><span>Age</span><span style="font-family:var(--mono);color:var(--text)">23F</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Start weight</span><span style="font-family:var(--mono);color:var(--text)">75 kg</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Goal weight</span><span style="font-family:var(--mono);color:var(--text)">57 kg</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Daily calories</span><span style="font-family:var(--mono);color:var(--text)">1,550 kcal</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Daily protein</span><span style="font-family:var(--mono);color:var(--text)">110 g</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Goal deadline</span><span style="font-family:var(--mono);color:var(--text)">December 2026</span></div>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost" onclick="testApiKey()"><i class="ti ti-plug"></i> Test connection</button>
+      <div id="test-result" style="font-size:12px;color:var(--text3);text-align:center;min-height:16px"></div>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showScreen('today',this)"><i class="ti ti-home"></i>Today</button>
+    <button class="nav-btn" onclick="showScreen('meals',this)"><i class="ti ti-salad"></i>Meals</button>
+    <button class="nav-btn" onclick="showScreen('workout',this)"><i class="ti ti-barbell"></i>Workout</button>
+    <button class="nav-btn" onclick="showScreen('progress',this)"><i class="ti ti-chart-line"></i>Progress</button>
+    <button class="nav-btn" onclick="showScreen('settings',this)"><i class="ti ti-settings"></i>Settings</button>
+  </nav>
+</div>
+
+<script>
+const GOAL=57, START=75, KCAL_TARGET=1550, PROT_TARGET=110;
+function getApiKey() { return localStorage.getItem('fittrack_apikey') || ''; }
+
+// ── DATA ──────────────────────────────────────────────────────────────
+const MEALS_DB = [
+  {name:'Brown rice',kr:'현미밥',portion:'½ 공기 (90g)',kcal:148,prot:3,cat:'Carbs'},
+  {name:'White rice',kr:'흰밥',portion:'½ 공기 (90g)',kcal:160,prot:3,cat:'Carbs'},
+  {name:'Kimchi',kr:'김치',portion:'100g',kcal:30,prot:2,cat:'Banchan'},
+  {name:'Spinach namul',kr:'시금치나물',portion:'80g',kcal:40,prot:3,cat:'Banchan'},
+  {name:'Bean sprout namul',kr:'콩나물무침',portion:'80g',kcal:35,prot:3,cat:'Banchan'},
+  {name:'Braised tofu',kr:'두부조림',portion:'150g',kcal:130,prot:10,cat:'Protein'},
+  {name:'Seaweed soup',kr:'미역국',portion:'1 bowl',kcal:45,prot:3,cat:'Soup'},
+  {name:'Doenjang jjigae',kr:'된장찌개',portion:'1 bowl',kcal:120,prot:9,cat:'Soup'},
+  {name:'Sundubu jjigae',kr:'순두부찌개',portion:'1 bowl',kcal:150,prot:12,cat:'Soup'},
+  {name:'Grilled mackerel',kr:'고등어구이',portion:'1 fillet',kcal:220,prot:24,cat:'Protein'},
+  {name:'Grilled salmon',kr:'연어구이',portion:'120g',kcal:240,prot:26,cat:'Protein'},
+  {name:'Chicken breast',kr:'닭가슴살',portion:'100g',kcal:165,prot:31,cat:'Protein'},
+  {name:'Stir-fried chicken',kr:'닭볶음',portion:'150g',kcal:220,prot:28,cat:'Protein'},
+  {name:'Bulgogi',kr:'불고기',portion:'100g cooked',kcal:210,prot:22,cat:'Protein'},
+  {name:'Samgyeopsal',kr:'삼겹살',portion:'150g cooked',kcal:490,prot:24,cat:'Protein'},
+  {name:'Boiled egg',kr:'삶은 계란',portion:'1 large egg',kcal:70,prot:6,cat:'Protein'},
+  {name:'Fried egg',kr:'계란후라이',portion:'1 egg',kcal:90,prot:6,cat:'Protein'},
+  {name:'Gyeran jjim',kr:'계란찜',portion:'1 bowl',kcal:130,prot:11,cat:'Protein'},
+  {name:'Bibimbap',kr:'비빔밥',portion:'1 bowl',kcal:480,prot:15,cat:'One-dish'},
+  {name:'Japchae',kr:'잡채',portion:'200g',kcal:290,prot:8,cat:'One-dish'},
+  {name:'Tteokbokki',kr:'떡볶이',portion:'200g',kcal:380,prot:7,cat:'One-dish'},
+  {name:'Instant ramen',kr:'라면',portion:'1 pack',kcal:500,prot:11,cat:'One-dish'},
+  {name:'Kimbap',kr:'김밥',portion:'1 roll',kcal:430,prot:14,cat:'One-dish'},
+  {name:'Greek yogurt',kr:'그릭요거트',portion:'150g',kcal:130,prot:15,cat:'Snack'},
+  {name:'Soy milk',kr:'두유',portion:'190ml',kcal:80,prot:7,cat:'Snack'},
+  {name:'Banana',kr:'바나나',portion:'1 medium',kcal:90,prot:1,cat:'Snack'},
+  {name:'Sweet potato',kr:'고구마',portion:'1 medium',kcal:110,prot:2,cat:'Snack'},
+  {name:'Protein shake',kr:'프로틴',portion:'1 scoop',kcal:120,prot:24,cat:'Snack'},
+];
+
+const WORKOUT_PLAN = [
+  { day: 1, name: 'Upper body — push', type: 'Strength', exercises: [
+    { name:'Dumbbell chest press', sets:3, reps:12, muscles:['Chest','Triceps','Shoulders'], cues:['Lie flat, dumbbells at chest height','Press up until arms almost straight — no locking elbows','Lower slowly: 3s down, 1s up'], anim:'press' },
+    { name:'Shoulder press', sets:3, reps:12, muscles:['Shoulders','Triceps'], cues:['Sit or stand, dumbbells at shoulder height','Press straight up overhead','Core tight throughout'], anim:'press' },
+    { name:'Lateral raises', sets:3, reps:15, muscles:['Side delts'], cues:['Arms slightly bent, raise to shoulder height','Lead with your elbows, not hands','Lower under control'], anim:'lateral' },
+    { name:'Tricep extensions', sets:3, reps:12, muscles:['Triceps'], cues:['Hold dumbbell overhead with both hands','Lower behind head, elbows point forward','Squeeze at the top'], anim:'curl' },
+    { name:'Push-ups', sets:3, reps:15, muscles:['Chest','Triceps','Core'], cues:['Hands shoulder-width, body straight','Lower chest to floor','Keep hips level — no sagging'], anim:'press' },
+  ]},
+  { day: 2, name: 'Lower body — squat', type: 'Strength', exercises: [
+    { name:'Goblet squat', sets:3, reps:12, muscles:['Quads','Glutes','Core'], cues:['Hold dumbbell at chest level','Feet shoulder-width, toes slightly out','Squat until thighs parallel, chest tall'], anim:'squat' },
+    { name:'Romanian deadlift', sets:3, reps:12, muscles:['Hamstrings','Glutes'], cues:['Soft bend in knees, hinge at hips','Push hips back, lower weights along legs','Drive hips forward to stand'], anim:'rdl' },
+    { name:'Reverse lunges', sets:3, reps:12, muscles:['Quads','Glutes'], cues:['Step back, lower back knee toward floor','Front shin stays vertical','Push through front heel to return'], anim:'squat' },
+    { name:'Calf raises', sets:3, reps:20, muscles:['Calves'], cues:['Stand on edge of step if possible','Rise fully onto toes','Lower below step height for full stretch'], anim:'squat' },
+  ]},
+  { day: 3, name: 'Active rest — walk', type: 'Cardio', exercises: [] },
+  { day: 4, name: 'Upper body — pull', type: 'Strength', exercises: [
+    { name:'Dumbbell rows', sets:3, reps:12, muscles:['Back','Biceps'], cues:['Brace on bench, one hand and knee','Pull elbow past your side','Squeeze shoulder blade at top'], anim:'row' },
+    { name:'Renegade rows', sets:3, reps:10, muscles:['Back','Core'], cues:['Plank position with dumbbells','Row one arm, keep hips square','Alternate sides'], anim:'row' },
+    { name:'Bicep curls', sets:3, reps:12, muscles:['Biceps'], cues:['Elbows pinned to sides','Curl fully, squeeze at top','Lower slowly — 3 seconds down'], anim:'curl' },
+    { name:'Face pulls (band/light DB)', sets:3, reps:15, muscles:['Rear delts','Rotator cuff'], cues:['Pull toward face, elbows high','External rotation at the end','Control the return'], anim:'row' },
+  ]},
+  { day: 5, name: 'Lower body — hinge', type: 'Strength', exercises: [
+    { name:'Deadlifts', sets:3, reps:10, muscles:['Hamstrings','Glutes','Back'], cues:['Bar/weights over mid-foot','Hinge hips back, chest tall','Drive floor away, lock out at top'], anim:'rdl' },
+    { name:'Single-leg RDL', sets:3, reps:10, muscles:['Hamstrings','Balance'], cues:['Slight bend in standing knee','Hinge forward, rear leg extends back','Keep hips square throughout'], anim:'rdl' },
+    { name:'Hip thrusts', sets:3, reps:15, muscles:['Glutes'], cues:['Shoulders on bench, weight on hips','Drive hips up to full extension','Squeeze glutes hard at top'], anim:'squat' },
+    { name:'Plank', sets:3, reps:0, muscles:['Core'], cues:['Straight line head to heel','Breathe steadily, brace core','Build up to 45–60 seconds'], anim:'press' },
+  ]},
+  { day: 6, name: 'Full body circuit', type: 'Cardio+Strength', exercises: [
+    { name:'Kettlebell swings', sets:3, reps:15, muscles:['Glutes','Hamstrings','Core'], cues:['Hip hinge — not a squat!','Drive hips forward explosively','Let weight float to shoulder height'], anim:'rdl' },
+    { name:'Push-ups', sets:3, reps:15, muscles:['Chest','Triceps'], cues:['Full range, chest to floor','Body straight as a plank','Modify on knees if needed'], anim:'press' },
+    { name:'Dumbbell rows', sets:3, reps:12, muscles:['Back'], cues:['45s on / 15s off format','Keep form clean even when tired','Rest 60s between rounds'], anim:'row' },
+    { name:'Goblet squat', sets:3, reps:15, muscles:['Quads','Glutes'], cues:['Light-to-moderate weight','Fast pace, controlled descent','3 full rounds total'], anim:'squat' },
+  ]},
+  { day: 7, name: 'Rest day', type: 'Rest', exercises: [] },
+];
+
+// ── ANIMATIONS ────────────────────────────────────────────────────────
+function makeFigureSVG(type) {
+  const w=160, h=120;
+  const animations = {
+    press: `
+      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
+        <rect x="20" y="72" width="120" height="10" rx="3" fill="#9FE1CB"/>
+        <circle cx="80" cy="58" r="9" fill="#085041"/>
+        <line x1="80" y1="67" x2="80" y2="88" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <g style="transform-origin:62px 77px;animation:pressUp 1.8s ease-in-out infinite">
+          <line x1="80" y1="77" x2="50" y2="68" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="50" y1="68" x2="44" y2="52" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="36" y="46" width="16" height="7" rx="2" fill="#0F6E56"/>
+        </g>
+        <g style="transform-origin:98px 77px;animation:pressUp 1.8s ease-in-out infinite">
+          <line x1="80" y1="77" x2="110" y2="68" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="110" y1="68" x2="116" y2="52" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="108" y="46" width="16" height="7" rx="2" fill="#0F6E56"/>
+        </g>
+        <line x1="72" y1="88" x2="68" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="88" y1="88" x2="92" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>`,
+    curl: `
+      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
+        <circle cx="80" cy="22" r="10" fill="#085041"/>
+        <line x1="80" y1="32" x2="80" y2="70" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="80" y1="70" x2="62" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="80" y1="70" x2="98" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <g style="transform-origin:80px 52px;animation:curle 1.8s ease-in-out infinite">
+          <line x1="80" y1="52" x2="52" y2="58" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="52" y1="58" x2="44" y2="38" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="36" y="32" width="14" height="6" rx="2" fill="#0F6E56"/>
+        </g>
+        <line x1="80" y1="52" x2="108" y2="58" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="108" y1="58" x2="116" y2="78" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="110" y="72" width="14" height="6" rx="2" fill="#0F6E56"/>
+      </svg>`,
+    squat: `
+      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
+        <circle cx="80" cy="20" r="10" fill="#085041"/>
+        <g style="transform-origin:80px 45px;animation:squat 1.8s ease-in-out infinite">
+          <line x1="80" y1="30" x2="80" y2="60" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="80" y1="45" x2="55" y2="55" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="80" y1="45" x2="105" y2="55" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="47" y="50" width="14" height="6" rx="2" fill="#0F6E56"/>
+          <rect x="99" y="50" width="14" height="6" rx="2" fill="#0F6E56"/>
+          <line x1="80" y1="60" x2="65" y2="90" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="80" y1="60" x2="95" y2="90" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="65" y1="90" x2="58" y2="108" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="95" y1="90" x2="102" y2="108" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        </g>
+      </svg>`,
+    rdl: `
+      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
+        <g style="transform-origin:80px 55px;animation:rdl 1.8s ease-in-out infinite">
+          <circle cx="80" cy="28" r="10" fill="#085041"/>
+          <line x1="80" y1="38" x2="80" y2="70" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="80" y1="55" x2="55" y2="62" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="80" y1="55" x2="105" y2="62" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="48" y="58" width="14" height="6" rx="2" fill="#0F6E56"/>
+          <rect x="98" y="58" width="14" height="6" rx="2" fill="#0F6E56"/>
+        </g>
+        <line x1="80" y1="70" x2="68" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="80" y1="70" x2="92" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>`,
+    lateral: `
+      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
+        <circle cx="80" cy="22" r="10" fill="#085041"/>
+        <line x1="80" y1="32" x2="80" y2="72" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="80" y1="72" x2="65" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="80" y1="72" x2="95" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <g style="transform-origin:80px 52px;animation:lateral 1.8s ease-in-out infinite">
+          <line x1="80" y1="52" x2="48" y2="52" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="38" y="48" width="14" height="6" rx="2" fill="#0F6E56"/>
+        </g>
+        <line x1="80" y1="52" x2="112" y2="52" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="108" y="48" width="14" height="6" rx="2" fill="#0F6E56"/>
+      </svg>`,
+    row: `
+      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
+        <rect x="15" y="70" width="50" height="10" rx="3" fill="#9FE1CB"/>
+        <circle cx="42" cy="52" r="9" fill="#085041"/>
+        <line x1="42" y1="61" x2="42" y2="80" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="42" y1="80" x2="25" y2="80" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="42" y1="80" x2="60" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="42" y1="70" x2="20" y2="62" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+        <g style="transform-origin:42px 70px;animation:row 1.8s ease-in-out infinite">
+          <line x1="42" y1="70" x2="90" y2="68" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="90" y1="68" x2="100" y2="55" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="94" y="49" width="14" height="6" rx="2" fill="#0F6E56"/>
+        </g>
+      </svg>`
+  };
+  return animations[type] || animations.press;
+}
+
+// ── STATE ──────────────────────────────────────────────────────────────
+let state = {
+  weights: [],
+  meals: [],
+  workoutSets: {},
+  weeklyReview: null,
+  claudeNotice: null,
+};
+
+function todayKey() { return new Date().toISOString().slice(0,10); }
+function dayOfWeek() { return new Date().getDay(); } // 0=Sun
+
+function save() { try { localStorage.setItem('fittrack_v1', JSON.stringify(state)); } catch(e){} }
+function load() {
+  try {
+    const d = localStorage.getItem('fittrack_v1');
+    if (d) state = {...state, ...JSON.parse(d)};
+  } catch(e){}
+  // filter to today's meals
+  state.meals = (state.meals||[]).filter(m => m.date === todayKey());
+}
+
+// ── HEADER ─────────────────────────────────────────────────────────────
+function initHeader() {
+  const d = new Date();
+  document.getElementById('hdr-date').textContent = d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+}
+
+// ── NAV ────────────────────────────────────────────────────────────────
+function showScreen(id, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  btn.classList.add('active');
+  if (id==='progress') renderProgress();
+  if (id==='workout') renderWorkout();
+  if (id==='settings') updateKeyStatusCard();
+}
+
+// ── WEIGHT ─────────────────────────────────────────────────────────────
+function logWeight() {
+  const am = parseFloat(document.getElementById('am-weight').value);
+  const pm = parseFloat(document.getElementById('pm-weight').value);
+  if (isNaN(am) && isNaN(pm)) return;
+  const today = todayKey();
+  state.weights = state.weights.filter(w => w.date !== today);
+  state.weights.push({ date: today, am: isNaN(am)?null:am, pm: isNaN(pm)?null:pm });
+  state.weights.sort((a,b)=>a.date.localeCompare(b.date));
+  save();
+  updateStats();
+  document.getElementById('weight-saved').textContent = 'Saved!';
+  setTimeout(()=>document.getElementById('weight-saved').textContent='',2000);
+  fetchClaudeNotice();
+}
+
+function avgW(entry) {
+  if (entry.am && entry.pm) return (entry.am+entry.pm)/2;
+  return entry.am || entry.pm;
+}
+
+function updateStats() {
+  const latest = state.weights.length ? state.weights[state.weights.length-1] : null;
+  const cur = latest ? avgW(latest) : null;
+  document.getElementById('stat-current').textContent = cur ? cur.toFixed(1)+' kg' : '—';
+  document.getElementById('stat-lost').textContent = cur ? Math.max(0,START-cur).toFixed(1)+' kg' : '—';
+  document.getElementById('stat-togo').textContent = cur ? Math.max(0,cur-GOAL).toFixed(1)+' kg' : '18.0 kg';
+  document.getElementById('p-current').textContent = cur ? cur.toFixed(1) : '—';
+  document.getElementById('p-lost').textContent = cur ? Math.max(0,START-cur).toFixed(1) : '—';
+  if (cur) {
+    const pct = Math.min(100, ((START-cur)/(START-GOAL))*100);
+    document.getElementById('goal-bar').style.width = Math.max(0,pct)+'%';
+    document.getElementById('goal-text').textContent = Math.max(0,cur-GOAL).toFixed(1)+' kg to go · ~'+Math.ceil(Math.max(0,cur-GOAL)/0.6)+' weeks at current pace';
+  }
+}
+
+// ── MEALS ──────────────────────────────────────────────────────────────
+function filterMeals() {
+  const q = document.getElementById('meal-search').value.toLowerCase().trim();
+  const box = document.getElementById('meal-options');
+  if (!q) { box.style.display='none'; return; }
+  const matches = MEALS_DB.filter(m => m.name.toLowerCase().includes(q) || m.kr.includes(q)).slice(0,8);
+  if (!matches.length) { box.style.display='none'; return; }
+  box.style.display='block';
+  box.innerHTML = matches.map((m,i) =>
+    `<div class="meal-opt" onclick="addMeal(${MEALS_DB.indexOf(m)})">
+      <div class="meal-opt-name">${m.name} <span style="color:var(--text3);font-size:12px">${m.kr}</span></div>
+      <div class="meal-opt-sub">${m.portion} · ${m.kcal} kcal · ${m.prot}g protein</div>
+    </div>`
+  ).join('');
+}
+
+function addMeal(idx) {
+  const m = MEALS_DB[idx];
+  state.meals.push({ ...m, date: todayKey(), id: Date.now() });
+  save();
+  document.getElementById('meal-search').value='';
+  document.getElementById('meal-options').style.display='none';
+  renderMeals();
+  updateMealTotals();
+}
+
+function removeMeal(id) {
+  state.meals = state.meals.filter(m => m.id !== id);
+  save();
+  renderMeals();
+  updateMealTotals();
+}
+
+function renderMeals() {
+  const el = document.getElementById('meal-log-list');
+  if (!state.meals.length) { el.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0">No meals logged yet.</div>'; return; }
+  el.innerHTML = state.meals.map(m =>
+    `<div class="meal-row">
+      <div class="meal-info">
+        <div class="meal-name">${m.name}</div>
+        <div class="meal-kr">${m.kr} · ${m.portion}</div>
+      </div>
+      <div class="meal-macros">${m.kcal} kcal<br>${m.prot}g</div>
+      <button class="meal-del" onclick="removeMeal(${m.id})"><i class="ti ti-x"></i></button>
+    </div>`
+  ).join('');
+}
+
+function updateMealTotals() {
+  const totK = state.meals.reduce((a,m)=>a+m.kcal,0);
+  const totP = state.meals.reduce((a,m)=>a+m.prot,0);
+  ['t-kcal','m-kcal'].forEach(id => document.getElementById(id).textContent = totK);
+  ['t-prot','m-prot'].forEach(id => document.getElementById(id).textContent = totP);
+  document.getElementById('kcal-bar').style.width = Math.min(100,(totK/KCAL_TARGET)*100)+'%';
+  document.getElementById('prot-bar').style.width = Math.min(100,(totP/PROT_TARGET)*100)+'%';
+  document.getElementById('kcal-remain').textContent = Math.max(0,KCAL_TARGET-totK)+' remaining';
+  document.getElementById('prot-remain').textContent = Math.max(0,PROT_TARGET-totP)+'g remaining';
+}
+
+async function analyseMeal() {
+  const desc = document.getElementById('meal-describe').value.trim();
+  if (!desc) return;
+  const card = document.querySelector('#screen-meals .card:nth-child(3)');
+  const btn = card.querySelector('.btn');
+  btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Analysing...';
+  btn.disabled = true;
+  try {
+    const res = await callClaude(`You are a nutrition expert. The user ate: "${desc}". Estimate calories and protein for a typical Korean home serving. Reply ONLY with JSON: {"name":"English name","kr":"Korean name if applicable","portion":"portion description","kcal":number,"prot":number}. No markdown, no explanation.`);
+    const json = JSON.parse(res.replace(/```json|```/g,'').trim());
+    state.meals.push({ ...json, cat:'Custom', date: todayKey(), id: Date.now() });
+    save();
+    renderMeals();
+    updateMealTotals();
+    document.getElementById('meal-describe').value='';
+  } catch(e) {
+    alert('Could not analyse — please check your connection.');
+  }
+  btn.innerHTML = '<i class="ti ti-sparkles"></i> Analyse with Claude ↗';
+  btn.disabled = false;
+}
+
+// ── WORKOUT ────────────────────────────────────────────────────────────
+function getTodayPlan() {
+  const dow = new Date().getDay(); // 0=Sun,1=Mon...
+  const map = {1:0,2:1,3:2,4:3,5:4,6:5,0:6};
+  return WORKOUT_PLAN[map[dow]];
+}
+
+function renderWorkout() {
+  const plan = getTodayPlan();
+  const hdr = document.getElementById('workout-header-card');
+  hdr.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <div class="card-title">${plan.name}</div>
+        <div class="card-sub">${plan.exercises.length} exercises${plan.exercises.length?` · tap any to see demo`:''}</div>
+      </div>
+      <span class="badge badge-${plan.type==='Rest'?'purple':plan.type==='Cardio'?'green':'amber'}">${plan.type}</span>
+    </div>`;
+
+  const list = document.getElementById('exercise-list');
+  if (!plan.exercises.length) {
+    list.innerHTML = `<div style="text-align:center;padding:20px 0">
+      <div style="font-size:32px;margin-bottom:8px">🏃</div>
+      <div class="card-title" style="margin-bottom:4px">${plan.name}</div>
+      <div class="card-sub">Aim for 10,000 steps today.<br>Use this time to stretch and recover.</div>
+    </div>`;
+    document.getElementById('workout-claude-tip').innerHTML='';
+    return;
+  }
+
+  const key = todayKey();
+  if (!state.workoutSets[key]) state.workoutSets[key] = {};
+
+  list.innerHTML = `<div class="card-label">Exercises</div>` + plan.exercises.map((ex,ei) => {
+    const exKey = `${key}_${ei}`;
+    const sets = state.workoutSets[exKey] || Array(ex.sets).fill({done:false,reps:ex.reps,weight:''});
+    const allDone = sets.every(s=>s.done);
+    return `<div class="exercise-row" id="exrow-${ei}">
+      <div class="ex-header" onclick="toggleEx(${ei})">
+        <div class="ex-check ${allDone?'done':''}" id="excheck-${ei}">${allDone?'<i class="ti ti-check"></i>':''}</div>
+        <div class="ex-name">${ex.name}</div>
+        <div class="ex-sets">${ex.sets}×${ex.reps||'hold'}</div>
+        <i class="ti ti-chevron-down ex-expand" id="exarrow-${ei}"></i>
+      </div>
+      <div class="ex-detail" id="exdetail-${ei}">
+        <div class="ex-detail-inner">
+          <div class="tags">${ex.muscles.map(m=>`<span class="muscle-tag">${m}</span>`).join('')}</div>
+          <div class="anim-stage">${makeFigureSVG(ex.anim)}</div>
+          ${ex.cues.map(c=>`<div class="cue"><div class="cue-dot"></div><div>${c}</div></div>`).join('')}
+          <div style="margin-top:10px;margin-bottom:4px;font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--text3);text-transform:uppercase">Sets</div>
+          ${sets.map((s,si)=>`
+            <div class="set-row">
+              <div class="set-num">Set ${si+1}</div>
+              <input class="set-input" type="number" placeholder="reps" value="${s.reps||''}" onchange="updateSet(${ei},${si},'reps',this.value)" style="max-width:70px">
+              <input class="set-input" type="number" placeholder="kg" value="${s.weight||''}" onchange="updateSet(${ei},${si},'weight',this.value)" style="max-width:60px">
+              <div class="set-check ${s.done?'done':''}" id="scheck-${ei}-${si}" onclick="toggleSet(${ei},${si})">${s.done?'<i class="ti ti-check"></i>':''}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('workout-claude-tip').innerHTML = `
+    <div class="claude-bubble green">
+      <div class="claude-header green"><i class="ti ti-sparkles"></i> Claude tip</div>
+      <div class="claude-msg green">Focus on form over weight today. If you can do all reps with perfect form, try adding 1–2kg next session.</div>
+    </div>`;
+}
+
+function toggleEx(ei) {
+  const detail = document.getElementById('exdetail-'+ei);
+  const arrow = document.getElementById('exarrow-'+ei);
+  detail.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+function updateSet(ei, si, field, val) {
+  const key = todayKey(); const exKey = `${key}_${ei}`;
+  const plan = getTodayPlan();
+  const ex = plan.exercises[ei];
+  if (!state.workoutSets[exKey]) state.workoutSets[exKey] = Array(ex.sets).fill(null).map(()=>({done:false,reps:ex.reps,weight:''}));
+  state.workoutSets[exKey][si] = {...state.workoutSets[exKey][si], [field]: val};
+  save();
+}
+
+function toggleSet(ei, si) {
+  const key = todayKey(); const exKey = `${key}_${ei}`;
+  const plan = getTodayPlan();
+  const ex = plan.exercises[ei];
+  if (!state.workoutSets[exKey]) state.workoutSets[exKey] = Array(ex.sets).fill(null).map(()=>({done:false,reps:ex.reps,weight:''}));
+  state.workoutSets[exKey][si].done = !state.workoutSets[exKey][si].done;
+  save();
+  const btn = document.getElementById(`scheck-${ei}-${si}`);
+  const done = state.workoutSets[exKey][si].done;
+  btn.className = 'set-check '+(done?'done':'');
+  btn.innerHTML = done?'<i class="ti ti-check"></i>':'';
+  const allDone = state.workoutSets[exKey].every(s=>s.done);
+  document.getElementById(`excheck-${ei}`).className='ex-check '+(allDone?'done':'');
+  document.getElementById(`excheck-${ei}`).innerHTML=allDone?'<i class="ti ti-check"></i>':'';
+}
+
+// ── PROGRESS ───────────────────────────────────────────────────────────
+let chartInst = null;
+function renderProgress() {
+  updateStats();
+  const last14 = state.weights.slice(-14);
+  const labels = last14.map(w=>{ const d=new Date(w.date+'T00:00:00'); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); });
+  const avgs = last14.map(w=>parseFloat(avgW(w).toFixed(1)));
+  const ctx = document.getElementById('weight-chart').getContext('2d');
+  if (chartInst) chartInst.destroy();
+  chartInst = new Chart(ctx, {
+    type:'line', data:{ labels, datasets:[
+      {label:'Weight (kg)',data:avgs,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',pointRadius:4,borderWidth:2,fill:true,tension:0.3},
+      {label:'Goal',data:labels.map(()=>GOAL),borderColor:'#D85A30',borderDash:[5,4],borderWidth:1.5,pointRadius:0,fill:false}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ font:{size:11,family:'DM Mono'}, color:'#5F5E5A', boxWidth:16 }}},
+      scales:{ y:{ min: Math.max(50,GOAL-2), grid:{color:'rgba(0,0,0,0.06)'}, ticks:{color:'#888780',font:{size:10,family:'DM Mono'},callback:v=>v+' kg'}},
+               x:{ grid:{display:false}, ticks:{color:'#888780',font:{size:10}}}}
+    }
+  });
+
+  // Streak
+  const grid = document.getElementById('streak-grid');
+  const days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  const today = new Date(); const dow = today.getDay();
+  grid.innerHTML = days.map((d,i)=>{
+    const diff = i - dow;
+    const dt = new Date(today); dt.setDate(today.getDate()+diff);
+    const dk = dt.toISOString().slice(0,10);
+    const hasWeight = state.weights.some(w=>w.date===dk);
+    const isFuture = diff > 0;
+    const cls = isFuture ? 'empty' : (hasWeight ? 'done' : 'empty');
+    return `<div class="streak-day ${cls}">${d}</div>`;
+  }).join('');
+
+  // review
+  const el = document.getElementById('progress-claude');
+  if (state.weeklyReview) {
+    el.innerHTML=`<div class="claude-msg purple" style="color:var(--purple)">${state.weeklyReview}</div>`;
+  } else {
+    el.innerHTML=`<div class="claude-loading">Tap below to get your weekly review from Claude.</div>`;
+  }
+}
+
+async function getWeeklyReview() {
+  const el = document.getElementById('progress-claude');
+  el.innerHTML=`<div class="claude-loading">Analysing your week...</div>`;
+  const recent = state.weights.slice(-7).map(w=>`${w.date}: avg ${avgW(w).toFixed(1)}kg`).join(', ');
+  const totK = state.meals.reduce((a,m)=>a+m.kcal,0);
+  try {
+    const msg = await callClaude(`You are a supportive fitness coach. Here is data for a 23F trying to lose weight from 75kg to 57kg by December, eating 1550 kcal/day Korean food. Recent weights: ${recent||'no data yet'}. Today's calories: ${totK} kcal. Write a 2-sentence weekly review: note progress or any concern, and give one specific actionable tip. Be warm but honest. No bullet points.`);
+    state.weeklyReview = msg;
+    save();
+    el.innerHTML=`<div class="claude-msg purple" style="color:var(--purple)">${msg}</div>`;
+  } catch(e){ el.innerHTML=`<div class="claude-loading">Couldn't connect to Claude — try again.</div>`; }
+}
+
+// ── CLAUDE API ─────────────────────────────────────────────────────────
+async function callClaude(prompt) {
+  const key = getApiKey();
+  if (!key) throw new Error('NO_KEY');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:300, messages:[{role:'user',content:prompt}] })
+  });
+  if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message||'API error'); }
+  const data = await res.json();
+  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+}
+
+async function fetchClaudeNotice() {
+  const el = document.getElementById('claude-notice');
+  if (!state.weights.length) return;
+  el.innerHTML=`<div class="claude-bubble purple"><div class="claude-header purple"><i class="ti ti-sparkles"></i> Claude notice</div><div class="claude-loading">Checking in...</div></div>`;
+  const recent = state.weights.slice(-5).map(w=>`${w.date}:${avgW(w).toFixed(1)}kg`).join(', ');
+  const meals = state.meals.map(m=>m.name).join(', ') || 'none yet';
+  try {
+    const msg = await callClaude(`You are a fitness coach. A 23F is tracking weight loss from 75kg to 57kg by December. Recent weights: ${recent}. Today's meals: ${meals}. Write ONE short, warm, specific observation or tip (max 25 words). Could be encouragement, a warning about food choices, or a trend you notice. No greeting, no sign-off.`);
+    el.innerHTML=`<div class="claude-bubble purple"><div class="claude-header purple"><i class="ti ti-sparkles"></i> Claude notice</div><div class="claude-msg purple">${msg}</div></div>`;
+    state.claudeNotice = msg; save();
+  } catch(e){
+    if (e.message==='NO_KEY') {
+      el.innerHTML=`<div class="claude-bubble amber"><div class="claude-header amber"><i class="ti ti-key"></i> Add API key</div><div class="claude-msg amber">Add your Anthropic API key in Settings to get live Claude feedback here.</div></div>`;
+    } else { el.innerHTML=''; }
+  }
+}
+
+// ── DAILY REPORT ───────────────────────────────────────────────────────
+function sendDailyReport() {
+  const latest = state.weights.length ? state.weights[state.weights.length-1] : null;
+  const totK = state.meals.reduce((a,m)=>a+m.kcal,0);
+  const totP = state.meals.reduce((a,m)=>a+m.prot,0);
+  const mealList = state.meals.map(m=>m.name).join(', ') || 'none logged';
+  const weightStr = latest ? `AM: ${latest.am||'—'} PM: ${latest.pm||'—'} (avg ${avgW(latest).toFixed(1)}kg)` : 'not logged';
+  const allWeights = state.weights.slice(-7).map(w=>`${w.date}:${avgW(w).toFixed(1)}kg`).join(', ');
+  const url = `https://claude.ai/new?q=${encodeURIComponent(`Daily check-in for my fitness plan (goal: 75kg → 57kg by December).\n\nToday's weight: ${weightStr}\nLast 7 days: ${allWeights}\n\nToday's food: ${mealList}\nTotal: ${totK} kcal, ${totP}g protein (targets: 1550 kcal, 110g protein)\n\nPlease: 1) Feedback on today, 2) Tomorrow's meal suggestions, 3) Any adjustments needed.`)}`;
+  window.open(url, '_blank');
+}
+
+// ── TODAY WORKOUT SUMMARY ──────────────────────────────────────────────
+function renderTodayWorkout() {
+  const plan = getTodayPlan();
+  const el = document.getElementById('today-workout-summary');
+  const key = todayKey();
+  const done = plan.exercises.filter((_,ei)=>{
+    const exKey=`${key}_${ei}`;
+    return (state.workoutSets[exKey]||[]).every(s=>s.done) && (state.workoutSets[exKey]||[]).length>0;
+  }).length;
+  el.innerHTML = `
+    <div class="card-title" style="margin-bottom:2px">${plan.name}</div>
+    <div class="card-sub" style="margin-bottom:8px">${plan.exercises.length?`${done} of ${plan.exercises.length} exercises done`:'Rest or walk day'}</div>
+    ${plan.exercises.length ? `<div class="prog-track"><div class="prog-fill" style="width:${plan.exercises.length?(done/plan.exercises.length*100):0}%"></div></div>` : ''}
+    <div style="margin-top:8px"><button class="btn btn-ghost" onclick="document.querySelector('.nav-btn:nth-child(3)').click()"><i class="ti ti-barbell"></i> Go to workout</button></div>`;
+}
+
+// ── SETTINGS ───────────────────────────────────────────────────────────
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val) { document.getElementById('key-status').textContent = 'Please enter a key.'; return; }
+  localStorage.setItem('fittrack_apikey', val);
+  document.getElementById('key-status').textContent = '✓ Saved!';
+  updateKeyStatusCard();
+  setTimeout(()=>document.getElementById('key-status').textContent='',2500);
+}
+
+function toggleKeyVis() {
+  const inp = document.getElementById('api-key-input');
+  const icon = document.getElementById('key-eye-icon');
+  if (inp.type==='password') { inp.type='text'; icon.className='ti ti-eye-off'; }
+  else { inp.type='password'; icon.className='ti ti-eye'; }
+}
+
+function updateKeyStatusCard() {
+  const key = getApiKey();
+  const dot = document.getElementById('key-dot');
+  const txt = document.getElementById('key-status-text');
+  const inp = document.getElementById('api-key-input');
+  if (key) {
+    dot.style.background='var(--green-light)';
+    txt.textContent='Key saved — Claude features enabled';
+    txt.style.color='var(--green)';
+    inp.value = key.slice(0,16)+'••••••••••••••••';
+  } else {
+    dot.style.background='var(--border)';
+    txt.textContent='No key saved — Claude features disabled';
+    txt.style.color='var(--text2)';
+  }
+}
+
+async function testApiKey() {
+  const el = document.getElementById('test-result');
+  const key = getApiKey();
+  if (!key) { el.textContent='No key saved yet.'; el.style.color='var(--amber)'; return; }
+  el.textContent='Testing connection...'; el.style.color='var(--text3)';
+  try {
+    const msg = await callClaude('Say exactly: "Connected!" and nothing else.');
+    el.textContent = '✓ '+msg.trim();
+    el.style.color='var(--green-light)';
+  } catch(e) {
+    el.textContent = '✗ '+( e.message==='NO_KEY' ? 'No key saved.' : e.message);
+    el.style.color='var(--coral)';
+  }
+}
+
+// ── SPIN ANIMATION ─────────────────────────────────────────────────────
+const style = document.createElement('style');
+style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
+
+// ── INIT ───────────────────────────────────────────────────────────────
+load();
+initHeader();
+updateStats();
+renderMeals();
+updateMealTotals();
+renderTodayWorkout();
+updateKeyStatusCard();
+if (state.claudeNotice) {
+  document.getElementById('claude-notice').innerHTML=`<div class="claude-bubble purple"><div class="claude-header purple"><i class="ti ti-sparkles"></i> Claude notice</div><div class="claude-msg purple">${state.claudeNotice}</div></div>`;
+}
+</script>
+</body>
+</html>
