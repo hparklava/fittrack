@@ -166,13 +166,12 @@ input:focus { border-color: var(--green-light); }
 /* SCROLL helper */
 ::-webkit-scrollbar { display: none; }
 
-/* ANIMATIONS FOR FIGURES */
-@keyframes pressUp { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
-@keyframes curle { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(-35deg)} }
-@keyframes squat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(14px)} }
-@keyframes rdl { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(30deg)} }
-@keyframes lateral { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(-50deg)} }
-@keyframes row { 0%,100%{transform:translateX(0)} 50%{transform:translateX(14px)} }
+/* ACTIVITY STATS */
+.act-stat { display:flex; align-items:center; gap:8px; }
+.act-stat i { font-size:20px; color:var(--green-light); }
+.act-val { font-size:16px; font-weight:600; font-family:var(--mono); color:var(--text); }
+.act-lbl { font-size:11px; color:var(--text3); }
+
 </style>
 </head>
 <body>
@@ -213,6 +212,44 @@ input:focus { border-color: var(--green-light); }
       </div>
 
       <div class="card">
+        <div class="card-label">Today's activity</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+          <div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Steps</div>
+            <input type="number" id="act-steps" placeholder="e.g. 8500" style="font-size:13px;padding:8px 10px">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Miles</div>
+            <input type="number" id="act-miles" step="0.1" placeholder="e.g. 3.2" style="font-size:13px;padding:8px 10px">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Flights</div>
+            <input type="number" id="act-flights" placeholder="e.g. 5" style="font-size:13px;padding:8px 10px">
+          </div>
+        </div>
+        <button class="btn btn-green" onclick="logActivity()"><i class="ti ti-device-floppy"></i> Save activity</button>
+        <div id="activity-saved" style="font-size:12px;color:var(--green-light);margin-top:8px;min-height:16px"></div>
+        <div id="activity-display" style="margin-top:10px"></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:flex-start;gap:8px">
+          <i class="ti ti-brand-apple" style="color:var(--text3);font-size:16px;margin-top:1px;flex-shrink:0"></i>
+          <div style="font-size:12px;color:var(--text3);line-height:1.5">To sync from Apple Health: open the <strong style="font-weight:500;color:var(--text2)">Health app</strong> → Browse → Activity → tap Steps/Walking Distance → see today's total → enter it above. True auto-sync requires a native iOS app and isn't possible from a web app.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Water intake</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <button onclick="addWater(-1)" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--bg);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2)">−</button>
+          <div style="flex:1;text-align:center">
+            <div id="water-count" style="font-size:32px;font-weight:600;font-family:var(--mono);color:var(--green-light)">0</div>
+            <div style="font-size:11px;color:var(--text3)">glasses of 250ml · goal: 8</div>
+          </div>
+          <button onclick="addWater(1)" style="width:36px;height:36px;border-radius:50%;border:none;background:var(--green-light);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff">+</button>
+        </div>
+        <div id="water-bubbles" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+
+      <div class="card">
         <div class="card-label">Today's workout</div>
         <div id="today-workout-summary"></div>
       </div>
@@ -232,15 +269,15 @@ input:focus { border-color: var(--green-light); }
     <!-- MEALS -->
     <div class="screen" id="screen-meals">
       <div class="totals-bar">
-        <div class="total-item"><div class="total-lbl">Calories</div><div class="total-val" id="m-kcal">0</div><div class="total-sub">/ 1,550 kcal</div></div>
-        <div class="total-item"><div class="total-lbl">Protein</div><div class="total-val" id="m-prot">0</div><div class="total-sub">/ 110 g</div></div>
+        <div class="total-item"><div class="total-lbl">Calories today</div><div class="total-val" id="m-kcal">0</div><div class="total-sub">/ 1,550 kcal</div></div>
+        <div class="total-item"><div class="total-lbl">Protein today</div><div class="total-val" id="m-prot">0</div><div class="total-sub">/ 110 g</div></div>
       </div>
 
       <div class="card">
         <div class="card-label">Search meals</div>
         <div class="search-wrap">
           <i class="ti ti-search"></i>
-          <input type="text" id="meal-search" placeholder="Search Korean meals..." oninput="filterMeals()">
+          <input type="text" id="meal-search" placeholder="Search any food..." oninput="filterMeals()">
         </div>
         <div class="meal-options" id="meal-options" style="display:none"></div>
       </div>
@@ -375,188 +412,779 @@ function getApiKey() { return localStorage.getItem('fittrack_apikey') || ''; }
 
 // ── DATA ──────────────────────────────────────────────────────────────
 const MEALS_DB = [
-  {name:'Brown rice',kr:'현미밥',portion:'½ 공기 (90g)',kcal:148,prot:3,cat:'Carbs'},
-  {name:'White rice',kr:'흰밥',portion:'½ 공기 (90g)',kcal:160,prot:3,cat:'Carbs'},
-  {name:'Kimchi',kr:'김치',portion:'100g',kcal:30,prot:2,cat:'Banchan'},
-  {name:'Spinach namul',kr:'시금치나물',portion:'80g',kcal:40,prot:3,cat:'Banchan'},
-  {name:'Bean sprout namul',kr:'콩나물무침',portion:'80g',kcal:35,prot:3,cat:'Banchan'},
-  {name:'Braised tofu',kr:'두부조림',portion:'150g',kcal:130,prot:10,cat:'Protein'},
-  {name:'Seaweed soup',kr:'미역국',portion:'1 bowl',kcal:45,prot:3,cat:'Soup'},
-  {name:'Doenjang jjigae',kr:'된장찌개',portion:'1 bowl',kcal:120,prot:9,cat:'Soup'},
-  {name:'Sundubu jjigae',kr:'순두부찌개',portion:'1 bowl',kcal:150,prot:12,cat:'Soup'},
-  {name:'Grilled mackerel',kr:'고등어구이',portion:'1 fillet',kcal:220,prot:24,cat:'Protein'},
-  {name:'Grilled salmon',kr:'연어구이',portion:'120g',kcal:240,prot:26,cat:'Protein'},
-  {name:'Chicken breast',kr:'닭가슴살',portion:'100g',kcal:165,prot:31,cat:'Protein'},
-  {name:'Stir-fried chicken',kr:'닭볶음',portion:'150g',kcal:220,prot:28,cat:'Protein'},
-  {name:'Bulgogi',kr:'불고기',portion:'100g cooked',kcal:210,prot:22,cat:'Protein'},
-  {name:'Samgyeopsal',kr:'삼겹살',portion:'150g cooked',kcal:490,prot:24,cat:'Protein'},
-  {name:'Boiled egg',kr:'삶은 계란',portion:'1 large egg',kcal:70,prot:6,cat:'Protein'},
-  {name:'Fried egg',kr:'계란후라이',portion:'1 egg',kcal:90,prot:6,cat:'Protein'},
-  {name:'Gyeran jjim',kr:'계란찜',portion:'1 bowl',kcal:130,prot:11,cat:'Protein'},
-  {name:'Bibimbap',kr:'비빔밥',portion:'1 bowl',kcal:480,prot:15,cat:'One-dish'},
-  {name:'Japchae',kr:'잡채',portion:'200g',kcal:290,prot:8,cat:'One-dish'},
-  {name:'Tteokbokki',kr:'떡볶이',portion:'200g',kcal:380,prot:7,cat:'One-dish'},
-  {name:'Instant ramen',kr:'라면',portion:'1 pack',kcal:500,prot:11,cat:'One-dish'},
-  {name:'Kimbap',kr:'김밥',portion:'1 roll',kcal:430,prot:14,cat:'One-dish'},
-  {name:'Greek yogurt',kr:'그릭요거트',portion:'150g',kcal:130,prot:15,cat:'Snack'},
-  {name:'Soy milk',kr:'두유',portion:'190ml',kcal:80,prot:7,cat:'Snack'},
-  {name:'Banana',kr:'바나나',portion:'1 medium',kcal:90,prot:1,cat:'Snack'},
-  {name:'Sweet potato',kr:'고구마',portion:'1 medium',kcal:110,prot:2,cat:'Snack'},
-  {name:'Protein shake',kr:'프로틴',portion:'1 scoop',kcal:120,prot:24,cat:'Snack'},
+  // ── KOREAN ──
+  {name:'Brown rice',kr:'현미밥',portion:'½ 공기 (90g)',kcal:148,prot:3,cat:'Korean'},
+  {name:'White rice',kr:'흰밥',portion:'½ 공기 (90g)',kcal:160,prot:3,cat:'Korean'},
+  {name:'Kimchi',kr:'김치',portion:'100g',kcal:30,prot:2,cat:'Korean'},
+  {name:'Spinach namul',kr:'시금치나물',portion:'80g',kcal:40,prot:3,cat:'Korean'},
+  {name:'Bean sprout namul',kr:'콩나물무침',portion:'80g',kcal:35,prot:3,cat:'Korean'},
+  {name:'Braised tofu',kr:'두부조림',portion:'150g',kcal:130,prot:10,cat:'Korean'},
+  {name:'Seaweed soup',kr:'미역국',portion:'1 bowl',kcal:45,prot:3,cat:'Korean'},
+  {name:'Doenjang jjigae',kr:'된장찌개',portion:'1 bowl',kcal:120,prot:9,cat:'Korean'},
+  {name:'Sundubu jjigae',kr:'순두부찌개',portion:'1 bowl',kcal:150,prot:12,cat:'Korean'},
+  {name:'Grilled mackerel',kr:'고등어구이',portion:'1 fillet',kcal:220,prot:24,cat:'Korean'},
+  {name:'Grilled salmon',kr:'연어구이',portion:'120g',kcal:240,prot:26,cat:'Korean'},
+  {name:'Stir-fried chicken',kr:'닭볶음',portion:'150g',kcal:220,prot:28,cat:'Korean'},
+  {name:'Bulgogi',kr:'불고기',portion:'100g cooked',kcal:210,prot:22,cat:'Korean'},
+  {name:'Samgyeopsal',kr:'삼겹살',portion:'150g cooked',kcal:490,prot:24,cat:'Korean'},
+  {name:'Gyeran jjim',kr:'계란찜',portion:'1 bowl',kcal:130,prot:11,cat:'Korean'},
+  {name:'Bibimbap',kr:'비빔밥',portion:'1 bowl',kcal:480,prot:15,cat:'Korean'},
+  {name:'Japchae',kr:'잡채',portion:'200g',kcal:290,prot:8,cat:'Korean'},
+  {name:'Tteokbokki',kr:'떡볶이',portion:'200g',kcal:380,prot:7,cat:'Korean'},
+  {name:'Instant ramen',kr:'라면',portion:'1 pack',kcal:500,prot:11,cat:'Korean'},
+  {name:'Kimbap',kr:'김밥',portion:'1 roll',kcal:430,prot:14,cat:'Korean'},
+  {name:'Soy milk',kr:'두유',portion:'190ml',kcal:80,prot:7,cat:'Korean'},
+  {name:'Sweet potato',kr:'고구마',portion:'1 medium',kcal:110,prot:2,cat:'Korean'},
+  // ── FRUIT ──
+  {name:'Apple',kr:'',portion:'1 medium (182g)',kcal:95,prot:0,cat:'Fruit'},
+  {name:'Banana',kr:'',portion:'1 medium (118g)',kcal:105,prot:1,cat:'Fruit'},
+  {name:'Orange',kr:'',portion:'1 medium (131g)',kcal:62,prot:1,cat:'Fruit'},
+  {name:'Grapes',kr:'',portion:'1 cup (150g)',kcal:104,prot:1,cat:'Fruit'},
+  {name:'Strawberries',kr:'',portion:'1 cup (152g)',kcal:49,prot:1,cat:'Fruit'},
+  {name:'Blueberries',kr:'',portion:'1 cup (148g)',kcal:84,prot:1,cat:'Fruit'},
+  {name:'Watermelon',kr:'',portion:'2 cups (280g)',kcal:85,prot:2,cat:'Fruit'},
+  {name:'Mango',kr:'',portion:'1 cup sliced (165g)',kcal:107,prot:1,cat:'Fruit'},
+  {name:'Pear',kr:'',portion:'1 medium (178g)',kcal:101,prot:1,cat:'Fruit'},
+  {name:'Peach',kr:'',portion:'1 medium (150g)',kcal:59,prot:1,cat:'Fruit'},
+  {name:'Kiwi',kr:'',portion:'1 fruit (76g)',kcal:42,prot:1,cat:'Fruit'},
+  {name:'Pineapple',kr:'',portion:'1 cup (165g)',kcal:82,prot:1,cat:'Fruit'},
+  {name:'Avocado',kr:'',portion:'½ fruit (100g)',kcal:160,prot:2,cat:'Fruit'},
+  {name:'Lemon',kr:'',portion:'1 fruit (58g)',kcal:17,prot:1,cat:'Fruit'},
+  // ── VEGETABLES ──
+  {name:'Broccoli',kr:'',portion:'1 cup (91g)',kcal:31,prot:3,cat:'Veg'},
+  {name:'Spinach (raw)',kr:'',portion:'1 cup (30g)',kcal:7,prot:1,cat:'Veg'},
+  {name:'Lettuce',kr:'',portion:'1 cup (47g)',kcal:8,prot:1,cat:'Veg'},
+  {name:'Tomato',kr:'',portion:'1 medium (123g)',kcal:22,prot:1,cat:'Veg'},
+  {name:'Cucumber',kr:'',portion:'½ cup sliced (52g)',kcal:8,prot:0,cat:'Veg'},
+  {name:'Carrot',kr:'',portion:'1 medium (61g)',kcal:25,prot:1,cat:'Veg'},
+  {name:'Bell pepper',kr:'',portion:'1 medium (119g)',kcal:31,prot:1,cat:'Veg'},
+  {name:'Onion',kr:'',portion:'½ cup (80g)',kcal:32,prot:1,cat:'Veg'},
+  {name:'Garlic',kr:'',portion:'3 cloves (9g)',kcal:13,prot:1,cat:'Veg'},
+  {name:'Corn',kr:'',portion:'1 ear (90g)',kcal:77,prot:3,cat:'Veg'},
+  {name:'Zucchini',kr:'',portion:'1 cup (124g)',kcal:21,prot:2,cat:'Veg'},
+  {name:'Mushrooms',kr:'',portion:'1 cup (70g)',kcal:15,prot:2,cat:'Veg'},
+  {name:'Edamame',kr:'',portion:'½ cup (78g)',kcal:94,prot:9,cat:'Veg'},
+  // ── PROTEIN ──
+  {name:'Chicken breast',kr:'닭가슴살',portion:'100g cooked',kcal:165,prot:31,cat:'Protein'},
+  {name:'Boiled egg',kr:'삶은 계란',portion:'1 large',kcal:70,prot:6,cat:'Protein'},
+  {name:'Fried egg',kr:'계란후라이',portion:'1 large',kcal:90,prot:6,cat:'Protein'},
+  {name:'Scrambled eggs (2)',kr:'',portion:'2 eggs + splash milk',kcal:180,prot:12,cat:'Protein'},
+  {name:'Tuna (canned)',kr:'',portion:'100g drained',kcal:116,prot:26,cat:'Protein'},
+  {name:'Salmon fillet',kr:'',portion:'120g',kcal:240,prot:26,cat:'Protein'},
+  {name:'Shrimp',kr:'',portion:'100g cooked',kcal:99,prot:24,cat:'Protein'},
+  {name:'Ground beef (lean)',kr:'',portion:'100g cooked',kcal:215,prot:26,cat:'Protein'},
+  {name:'Steak (sirloin)',kr:'',portion:'100g cooked',kcal:207,prot:26,cat:'Protein'},
+  {name:'Pork tenderloin',kr:'',portion:'100g cooked',kcal:143,prot:26,cat:'Protein'},
+  {name:'Tofu (firm)',kr:'두부',portion:'100g',kcal:76,prot:8,cat:'Protein'},
+  {name:'Tempeh',kr:'',portion:'100g',kcal:193,prot:19,cat:'Protein'},
+  {name:'Black beans',kr:'',portion:'½ cup cooked',kcal:114,prot:8,cat:'Protein'},
+  {name:'Chickpeas',kr:'',portion:'½ cup cooked',kcal:134,prot:7,cat:'Protein'},
+  {name:'Lentils',kr:'',portion:'½ cup cooked',kcal:116,prot:9,cat:'Protein'},
+  {name:'Cottage cheese',kr:'',portion:'½ cup (113g)',kcal:90,prot:12,cat:'Protein'},
+  {name:'Protein shake',kr:'프로틴',portion:'1 scoop (30g)',kcal:120,prot:24,cat:'Protein'},
+  // ── DAIRY ──
+  {name:'Greek yogurt (plain)',kr:'그릭요거트',portion:'150g',kcal:130,prot:15,cat:'Dairy'},
+  {name:'Milk (whole)',kr:'',portion:'1 cup (240ml)',kcal:150,prot:8,cat:'Dairy'},
+  {name:'Milk (skim)',kr:'',portion:'1 cup (240ml)',kcal:83,prot:8,cat:'Dairy'},
+  {name:'Cheddar cheese',kr:'',portion:'1 slice (28g)',kcal:113,prot:7,cat:'Dairy'},
+  {name:'Mozzarella',kr:'',portion:'30g',kcal:85,prot:6,cat:'Dairy'},
+  {name:'Butter',kr:'',portion:'1 tsp (5g)',kcal:36,prot:0,cat:'Dairy'},
+  {name:'Cream cheese',kr:'',portion:'2 tbsp (29g)',kcal:99,prot:2,cat:'Dairy'},
+  // ── CARBS / GRAINS ──
+  {name:'Oats (dry)',kr:'',portion:'½ cup (40g)',kcal:150,prot:5,cat:'Carbs'},
+  {name:'Oatmeal (cooked)',kr:'',portion:'1 cup (234g)',kcal:166,prot:6,cat:'Carbs'},
+  {name:'Bread (white)',kr:'',portion:'1 slice (30g)',kcal:80,prot:3,cat:'Carbs'},
+  {name:'Bread (wholegrain)',kr:'',portion:'1 slice (30g)',kcal:70,prot:4,cat:'Carbs'},
+  {name:'Pasta (cooked)',kr:'',portion:'1 cup (140g)',kcal:220,prot:8,cat:'Carbs'},
+  {name:'Bagel',kr:'',portion:'1 medium (98g)',kcal:270,prot:11,cat:'Carbs'},
+  {name:'Tortilla (flour)',kr:'',portion:'1 medium (45g)',kcal:140,prot:4,cat:'Carbs'},
+  {name:'Granola bar',kr:'',portion:'1 bar (47g)',kcal:193,prot:4,cat:'Carbs'},
+  {name:'Potato (baked)',kr:'',portion:'1 medium (173g)',kcal:161,prot:4,cat:'Carbs'},
+  {name:'French fries',kr:'',portion:'medium serving (117g)',kcal:365,prot:4,cat:'Carbs'},
+  // ── SNACKS ──
+  {name:'Almonds',kr:'',portion:'28g (about 23)',kcal:164,prot:6,cat:'Snacks'},
+  {name:'Peanuts',kr:'',portion:'28g',kcal:161,prot:7,cat:'Snacks'},
+  {name:'Cashews',kr:'',portion:'28g',kcal:157,prot:5,cat:'Snacks'},
+  {name:'Peanut butter',kr:'',portion:'2 tbsp (32g)',kcal:190,prot:8,cat:'Snacks'},
+  {name:'Hummus',kr:'',portion:'2 tbsp (30g)',kcal:50,prot:2,cat:'Snacks'},
+  {name:'Dark chocolate',kr:'',portion:'1 square (10g)',kcal:55,prot:1,cat:'Snacks'},
+  {name:'Chips (potato)',kr:'',portion:'1 oz (28g)',kcal:155,prot:2,cat:'Snacks'},
+  {name:'Popcorn (plain)',kr:'',portion:'3 cups (24g)',kcal:93,prot:3,cat:'Snacks'},
+  {name:'Rice cake',kr:'',portion:'1 cake (9g)',kcal:35,prot:1,cat:'Snacks'},
+  {name:'Trail mix',kr:'',portion:'¼ cup (38g)',kcal:173,prot:5,cat:'Snacks'},
+  // ── DRINKS ──
+  {name:'Coffee (black)',kr:'',portion:'1 cup (240ml)',kcal:2,prot:0,cat:'Drinks'},
+  {name:'Latte (whole milk)',kr:'',portion:'12oz',kcal:180,prot:9,cat:'Drinks'},
+  {name:'Orange juice',kr:'',portion:'1 cup (240ml)',kcal:112,prot:2,cat:'Drinks'},
+  {name:'Smoothie (fruit)',kr:'',portion:'1 cup (240ml)',kcal:150,prot:2,cat:'Drinks'},
+  {name:'Soju',kr:'소주',portion:'1 bottle (360ml)',kcal:408,prot:0,cat:'Drinks'},
+  {name:'Beer',kr:'맥주',portion:'1 can (355ml)',kcal:153,prot:1,cat:'Drinks'},
+  {name:'Sparkling water',kr:'',portion:'1 can (355ml)',kcal:0,prot:0,cat:'Drinks'},
+  // ── FAST FOOD / EATING OUT ──
+  {name:'McDonald\'s Big Mac',kr:'',portion:'1 burger',kcal:563,prot:26,cat:'Eating out'},
+  {name:'McDonald\'s fries (med)',kr:'',portion:'medium',kcal:320,prot:4,cat:'Eating out'},
+  {name:'Subway 6" turkey',kr:'',portion:'6 inch',kcal:280,prot:18,cat:'Eating out'},
+  {name:'Pizza (cheese slice)',kr:'',portion:'1 slice (107g)',kcal:285,prot:12,cat:'Eating out'},
+  {name:'Burrito (chicken)',kr:'',portion:'1 burrito',kcal:490,prot:33,cat:'Eating out'},
+  {name:'Sushi (salmon nigiri)',kr:'',portion:'2 pieces',kcal:130,prot:9,cat:'Eating out'},
+  {name:'Pad thai',kr:'',portion:'1 serving (300g)',kcal:430,prot:18,cat:'Eating out'},
+  {name:'Caesar salad',kr:'',portion:'1 serving (200g)',kcal:290,prot:7,cat:'Eating out'},
 ];
 
-const WORKOUT_PLAN = [
-  { day: 1, name: 'Upper body — push', type: 'Strength', exercises: [
-    { name:'Dumbbell chest press', sets:3, reps:12, muscles:['Chest','Triceps','Shoulders'], cues:['Lie flat, dumbbells at chest height','Press up until arms almost straight — no locking elbows','Lower slowly: 3s down, 1s up'], anim:'press' },
-    { name:'Shoulder press', sets:3, reps:12, muscles:['Shoulders','Triceps'], cues:['Sit or stand, dumbbells at shoulder height','Press straight up overhead','Core tight throughout'], anim:'press' },
-    { name:'Lateral raises', sets:3, reps:15, muscles:['Side delts'], cues:['Arms slightly bent, raise to shoulder height','Lead with your elbows, not hands','Lower under control'], anim:'lateral' },
-    { name:'Tricep extensions', sets:3, reps:12, muscles:['Triceps'], cues:['Hold dumbbell overhead with both hands','Lower behind head, elbows point forward','Squeeze at the top'], anim:'curl' },
-    { name:'Push-ups', sets:3, reps:15, muscles:['Chest','Triceps','Core'], cues:['Hands shoulder-width, body straight','Lower chest to floor','Keep hips level — no sagging'], anim:'press' },
-  ]},
-  { day: 2, name: 'Lower body — squat', type: 'Strength', exercises: [
-    { name:'Goblet squat', sets:3, reps:12, muscles:['Quads','Glutes','Core'], cues:['Hold dumbbell at chest level','Feet shoulder-width, toes slightly out','Squat until thighs parallel, chest tall'], anim:'squat' },
-    { name:'Romanian deadlift', sets:3, reps:12, muscles:['Hamstrings','Glutes'], cues:['Soft bend in knees, hinge at hips','Push hips back, lower weights along legs','Drive hips forward to stand'], anim:'rdl' },
-    { name:'Reverse lunges', sets:3, reps:12, muscles:['Quads','Glutes'], cues:['Step back, lower back knee toward floor','Front shin stays vertical','Push through front heel to return'], anim:'squat' },
-    { name:'Calf raises', sets:3, reps:20, muscles:['Calves'], cues:['Stand on edge of step if possible','Rise fully onto toes','Lower below step height for full stretch'], anim:'squat' },
-  ]},
-  { day: 3, name: 'Active rest — walk', type: 'Cardio', exercises: [] },
-  { day: 4, name: 'Upper body — pull', type: 'Strength', exercises: [
-    { name:'Dumbbell rows', sets:3, reps:12, muscles:['Back','Biceps'], cues:['Brace on bench, one hand and knee','Pull elbow past your side','Squeeze shoulder blade at top'], anim:'row' },
-    { name:'Renegade rows', sets:3, reps:10, muscles:['Back','Core'], cues:['Plank position with dumbbells','Row one arm, keep hips square','Alternate sides'], anim:'row' },
-    { name:'Bicep curls', sets:3, reps:12, muscles:['Biceps'], cues:['Elbows pinned to sides','Curl fully, squeeze at top','Lower slowly — 3 seconds down'], anim:'curl' },
-    { name:'Face pulls (band/light DB)', sets:3, reps:15, muscles:['Rear delts','Rotator cuff'], cues:['Pull toward face, elbows high','External rotation at the end','Control the return'], anim:'row' },
-  ]},
-  { day: 5, name: 'Lower body — hinge', type: 'Strength', exercises: [
-    { name:'Deadlifts', sets:3, reps:10, muscles:['Hamstrings','Glutes','Back'], cues:['Bar/weights over mid-foot','Hinge hips back, chest tall','Drive floor away, lock out at top'], anim:'rdl' },
-    { name:'Single-leg RDL', sets:3, reps:10, muscles:['Hamstrings','Balance'], cues:['Slight bend in standing knee','Hinge forward, rear leg extends back','Keep hips square throughout'], anim:'rdl' },
-    { name:'Hip thrusts', sets:3, reps:15, muscles:['Glutes'], cues:['Shoulders on bench, weight on hips','Drive hips up to full extension','Squeeze glutes hard at top'], anim:'squat' },
-    { name:'Plank', sets:3, reps:0, muscles:['Core'], cues:['Straight line head to heel','Breathe steadily, brace core','Build up to 45–60 seconds'], anim:'press' },
-  ]},
-  { day: 6, name: 'Full body circuit', type: 'Cardio+Strength', exercises: [
-    { name:'Kettlebell swings', sets:3, reps:15, muscles:['Glutes','Hamstrings','Core'], cues:['Hip hinge — not a squat!','Drive hips forward explosively','Let weight float to shoulder height'], anim:'rdl' },
-    { name:'Push-ups', sets:3, reps:15, muscles:['Chest','Triceps'], cues:['Full range, chest to floor','Body straight as a plank','Modify on knees if needed'], anim:'press' },
-    { name:'Dumbbell rows', sets:3, reps:12, muscles:['Back'], cues:['45s on / 15s off format','Keep form clean even when tired','Rest 60s between rounds'], anim:'row' },
-    { name:'Goblet squat', sets:3, reps:15, muscles:['Quads','Glutes'], cues:['Light-to-moderate weight','Fast pace, controlled descent','3 full rounds total'], anim:'squat' },
-  ]},
-  { day: 7, name: 'Rest day', type: 'Rest', exercises: [] },
+// ── DYNAMIC WORKOUT SYSTEM ─────────────────────────────────────────────
+// 4 phases across ~30 weeks. Each phase has its own exercise pool per day type.
+// Sets/reps escalate each phase. Day type rotates Mon–Sun regardless of phase.
+
+const START_DATE = new Date('2026-05-19');
+
+function getWeekNumber() {
+  const now = new Date();
+  const diff = Math.floor((now - START_DATE) / (7 * 24 * 60 * 60 * 1000));
+  return Math.max(0, diff);
+}
+
+function getPhase(week) {
+  if (week < 4)  return 0; // Foundation
+  if (week < 10) return 1; // Build
+  if (week < 20) return 2; // Strength
+  return 3;                // Peak
+}
+
+const PHASE_INFO = [
+  { name: 'Foundation', desc: 'Weeks 1–4 · Learn the movements, build the habit', color: 'badge-green' },
+  { name: 'Build',      desc: 'Weeks 5–10 · More volume, heavier weights',         color: 'badge-amber' },
+  { name: 'Strength',   desc: 'Weeks 11–20 · Progressive overload focus',           color: 'badge-purple' },
+  { name: 'Peak',       desc: 'Weeks 21+ · High intensity, full recomposition',     color: 'badge-coral' },
 ];
 
-// ── ANIMATIONS ────────────────────────────────────────────────────────
-function makeFigureSVG(type) {
-  const w=160, h=120;
-  const animations = {
-    press: `
-      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
-        <rect x="20" y="72" width="120" height="10" rx="3" fill="#9FE1CB"/>
-        <circle cx="80" cy="58" r="9" fill="#085041"/>
-        <line x1="80" y1="67" x2="80" y2="88" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <g style="transform-origin:62px 77px;animation:pressUp 1.8s ease-in-out infinite">
-          <line x1="80" y1="77" x2="50" y2="68" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="50" y1="68" x2="44" y2="52" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <rect x="36" y="46" width="16" height="7" rx="2" fill="#0F6E56"/>
-        </g>
-        <g style="transform-origin:98px 77px;animation:pressUp 1.8s ease-in-out infinite">
-          <line x1="80" y1="77" x2="110" y2="68" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="110" y1="68" x2="116" y2="52" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <rect x="108" y="46" width="16" height="7" rx="2" fill="#0F6E56"/>
-        </g>
-        <line x1="72" y1="88" x2="68" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="88" y1="88" x2="92" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-      </svg>`,
-    curl: `
-      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
-        <circle cx="80" cy="22" r="10" fill="#085041"/>
-        <line x1="80" y1="32" x2="80" y2="70" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="80" y1="70" x2="62" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="80" y1="70" x2="98" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <g style="transform-origin:80px 52px;animation:curle 1.8s ease-in-out infinite">
-          <line x1="80" y1="52" x2="52" y2="58" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="52" y1="58" x2="44" y2="38" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <rect x="36" y="32" width="14" height="6" rx="2" fill="#0F6E56"/>
-        </g>
-        <line x1="80" y1="52" x2="108" y2="58" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="108" y1="58" x2="116" y2="78" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <rect x="110" y="72" width="14" height="6" rx="2" fill="#0F6E56"/>
-      </svg>`,
-    squat: `
-      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
-        <circle cx="80" cy="20" r="10" fill="#085041"/>
-        <g style="transform-origin:80px 45px;animation:squat 1.8s ease-in-out infinite">
-          <line x1="80" y1="30" x2="80" y2="60" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="80" y1="45" x2="55" y2="55" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="80" y1="45" x2="105" y2="55" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <rect x="47" y="50" width="14" height="6" rx="2" fill="#0F6E56"/>
-          <rect x="99" y="50" width="14" height="6" rx="2" fill="#0F6E56"/>
-          <line x1="80" y1="60" x2="65" y2="90" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="80" y1="60" x2="95" y2="90" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="65" y1="90" x2="58" y2="108" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="95" y1="90" x2="102" y2="108" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        </g>
-      </svg>`,
-    rdl: `
-      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
-        <g style="transform-origin:80px 55px;animation:rdl 1.8s ease-in-out infinite">
-          <circle cx="80" cy="28" r="10" fill="#085041"/>
-          <line x1="80" y1="38" x2="80" y2="70" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="80" y1="55" x2="55" y2="62" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="80" y1="55" x2="105" y2="62" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <rect x="48" y="58" width="14" height="6" rx="2" fill="#0F6E56"/>
-          <rect x="98" y="58" width="14" height="6" rx="2" fill="#0F6E56"/>
-        </g>
-        <line x1="80" y1="70" x2="68" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="80" y1="70" x2="92" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-      </svg>`,
-    lateral: `
-      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
-        <circle cx="80" cy="22" r="10" fill="#085041"/>
-        <line x1="80" y1="32" x2="80" y2="72" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="80" y1="72" x2="65" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="80" y1="72" x2="95" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <g style="transform-origin:80px 52px;animation:lateral 1.8s ease-in-out infinite">
-          <line x1="80" y1="52" x2="48" y2="52" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <rect x="38" y="48" width="14" height="6" rx="2" fill="#0F6E56"/>
-        </g>
-        <line x1="80" y1="52" x2="112" y2="52" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <rect x="108" y="48" width="14" height="6" rx="2" fill="#0F6E56"/>
-      </svg>`,
-    row: `
-      <svg width="${w}" height="${h}" viewBox="0 0 160 120">
-        <rect x="15" y="70" width="50" height="10" rx="3" fill="#9FE1CB"/>
-        <circle cx="42" cy="52" r="9" fill="#085041"/>
-        <line x1="42" y1="61" x2="42" y2="80" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="42" y1="80" x2="25" y2="80" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="42" y1="80" x2="60" y2="105" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="42" y1="70" x2="20" y2="62" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-        <g style="transform-origin:42px 70px;animation:row 1.8s ease-in-out infinite">
-          <line x1="42" y1="70" x2="90" y2="68" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="90" y1="68" x2="100" y2="55" stroke="#085041" stroke-width="2.5" stroke-linecap="round"/>
-          <rect x="94" y="49" width="14" height="6" rx="2" fill="#0F6E56"/>
-        </g>
-      </svg>`
+// Exercise library — each exercise tagged with what it trains and which phases it appears in
+const EX_LIBRARY = {
+  // PUSH (chest, shoulders, triceps)
+  push: [
+    { name:'Dumbbell chest press',      phases:[0,1,2,3], muscles:['Chest','Triceps','Shoulders'], cues:['Lie flat, dumbbells at chest height','Press up, stop just before locking elbows','Lower 3s down, 1s up'] },
+    { name:'Push-ups',                  phases:[0,1,2,3], muscles:['Chest','Triceps','Core'],      cues:['Hands shoulder-width apart','Lower chest to floor, body straight','Modify on knees if needed — keep hips level'] },
+    { name:'Shoulder press',            phases:[0,1,2,3], muscles:['Shoulders','Triceps'],         cues:['Dumbbells at shoulder height','Press straight overhead','Core braced — don\'t arch your back'] },
+    { name:'Lateral raises',            phases:[0,1,2,3], muscles:['Side delts'],                  cues:['Slight bend in elbows','Raise to shoulder height — no higher','Lead with elbows, not wrists'] },
+    { name:'Tricep extensions',         phases:[0,1,2,3], muscles:['Triceps'],                     cues:['Hold one dumbbell overhead with both hands','Lower behind head, elbows forward','Extend fully, squeeze triceps at top'] },
+    { name:'Incline push-ups',          phases:[0,1],     muscles:['Upper chest','Triceps'],       cues:['Hands on elevated surface (bench/bed)','Body straight, lower chest to surface','Great for upper chest activation'] },
+    { name:'Arnold press',              phases:[2,3],     muscles:['Shoulders','Triceps'],         cues:['Start with palms facing you at chin','Rotate palms out as you press up','Full shoulder rotation — slow and controlled'] },
+    { name:'Close-grip push-ups',       phases:[2,3],     muscles:['Triceps','Inner chest'],       cues:['Hands close together below chest','Elbows track back — not flared','More tricep emphasis than regular push-ups'] },
+  ],
+  // PULL (back, biceps)
+  pull: [
+    { name:'Dumbbell rows',             phases:[0,1,2,3], muscles:['Back','Biceps'],               cues:['One knee and hand on bench','Pull elbow past your side','Squeeze shoulder blade at top — 1s pause'] },
+    { name:'Bicep curls',               phases:[0,1,2,3], muscles:['Biceps'],                      cues:['Elbows pinned to your sides','Full curl — squeeze hard at top','Lower slowly: 3 seconds down'] },
+    { name:'Renegade rows',             phases:[1,2,3],   muscles:['Back','Core'],                 cues:['Plank on dumbbells, hips square','Row one arm at a time','Brace core hard — no hip rotation'] },
+    { name:'Face pulls (band/light DB)',phases:[0,1,2,3], muscles:['Rear delts','Rotator cuff'],   cues:['Pull toward your face, elbows high','External rotation at end of movement','Light weight — this protects your shoulder'] },
+    { name:'Hammer curls',              phases:[1,2,3],   muscles:['Biceps','Forearms'],           cues:['Palms face each other throughout','Curl without rotating the wrist','Targets long head of bicep and brachialis'] },
+    { name:'Bent-over row',             phases:[2,3],     muscles:['Back','Biceps','Core'],        cues:['Hinge forward 45°, flat back','Pull both dumbbells to lower ribs','Squeeze shoulder blades together at top'] },
+    { name:'Reverse fly',               phases:[1,2,3],   muscles:['Rear delts','Upper back'],     cues:['Hinge forward, slight bend in elbows','Raise arms out to sides','Pinch shoulder blades — feel the upper back'] },
+  ],
+  // LEGS SQUAT (quads, glutes)
+  legs_squat: [
+    { name:'Goblet squat',              phases:[0,1,2,3], muscles:['Quads','Glutes','Core'],       cues:['Hold dumbbell at chest, feet shoulder-width','Toes slightly out, squat until thighs parallel','Chest tall — don\'t let it cave forward'] },
+    { name:'Reverse lunges',            phases:[0,1,2,3], muscles:['Quads','Glutes'],              cues:['Step back, lower back knee toward floor','Front shin stays vertical over foot','Push through front heel to return'] },
+    { name:'Calf raises',               phases:[0,1,2,3], muscles:['Calves'],                      cues:['Rise fully onto toes','Lower below neutral for full stretch','Do these slowly — calves respond to time under tension'] },
+    { name:'Sumo squat',                phases:[1,2,3],   muscles:['Inner thighs','Glutes'],       cues:['Wide stance, toes pointed out','Dumbbell hanging between legs','Keep chest up, push knees out in line with toes'] },
+    { name:'Bulgarian split squat',     phases:[2,3],     muscles:['Quads','Glutes','Balance'],    cues:['Rear foot elevated on bench','Lower back knee toward floor','Most of weight through front foot — it\'s hard, that\'s normal'] },
+    { name:'Jump squats',               phases:[2,3],     muscles:['Quads','Glutes','Power'],      cues:['Bodyweight only','Squat to parallel, explode up','Land softly — absorb with your legs, not your knees'] },
+    { name:'Wall sit',                  phases:[0,1],     muscles:['Quads'],                      cues:['Back flat on wall, thighs parallel','Hold for 30–45 seconds','Add a dumbbell on your lap to progress'] },
+  ],
+  // LEGS HINGE (hamstrings, glutes, posterior chain)
+  legs_hinge: [
+    { name:'Romanian deadlift',         phases:[0,1,2,3], muscles:['Hamstrings','Glutes'],         cues:['Soft bend in knees, hinge at hips','Push hips back, lower weights along legs','Feel the hamstring stretch, drive hips to stand'] },
+    { name:'Hip thrusts',               phases:[0,1,2,3], muscles:['Glutes'],                      cues:['Shoulders on bench, dumbbell on hips','Drive hips to full extension','Squeeze glutes hard at top — 1s pause'] },
+    { name:'Single-leg RDL',            phases:[1,2,3],   muscles:['Hamstrings','Balance'],        cues:['Slight bend in standing knee','Hinge forward, rear leg extends straight back','Keep hips square — don\'t rotate'] },
+    { name:'Deadlifts',                 phases:[1,2,3],   muscles:['Hamstrings','Glutes','Back'],  cues:['Weights over mid-foot, hinge hips back','Flat back, chest tall throughout','Drive through the floor to stand — lock out at top'] },
+    { name:'Good mornings',             phases:[2,3],     muscles:['Hamstrings','Lower back'],     cues:['Dumbbell behind head or at chest','Hinge forward until torso near parallel','Drive hips forward to stand — keep back flat'] },
+    { name:'Glute bridges',             phases:[0,1],     muscles:['Glutes','Hamstrings'],         cues:['Lie on floor, feet flat, knees bent','Drive hips straight up','Squeeze at top — bodyweight version of hip thrusts'] },
+    { name:'Plank',                     phases:[0,1,2,3], muscles:['Core'],                        cues:['Straight line head to heel','Breathe steadily — don\'t hold your breath','Build up to 60 seconds this phase'] },
+  ],
+  // CIRCUIT (full body, cardio+strength)
+  circuit: [
+    { name:'Kettlebell swings',         phases:[0,1,2,3], muscles:['Glutes','Hamstrings','Core'],  cues:['Hip hinge — this is NOT a squat','Drive hips forward explosively','Weight floats to shoulder height from hip power alone'] },
+    { name:'Push-ups',                  phases:[0,1,2,3], muscles:['Chest','Triceps'],             cues:['Full range, chest to floor','Body straight as a plank','Modify on knees if needed'] },
+    { name:'Dumbbell rows',             phases:[0,1,2,3], muscles:['Back'],                        cues:['45s on / 15s off format','Keep form clean even when tired','Rest 60s between full rounds'] },
+    { name:'Goblet squat',              phases:[0,1,2,3], muscles:['Quads','Glutes'],              cues:['Light-moderate weight, faster pace','Controlled descent — explosive up','3 full rounds total'] },
+    { name:'Burpees',                   phases:[2,3],     muscles:['Full body','Cardio'],          cues:['From standing: squat, jump back to plank','Push-up optional','Jump up — clap overhead. Maximum effort'] },
+    { name:'Mountain climbers',         phases:[1,2,3],   muscles:['Core','Cardio'],               cues:['Plank position, alternate driving knees to chest','Fast pace for cardio benefit','Keep hips level — don\'t bounce'] },
+    { name:'Reverse lunges',            phases:[0,1,2,3], muscles:['Quads','Glutes'],              cues:['Alternate legs each rep','Add dumbbells when bodyweight feels easy','Controlled — this isn\'t a race'] },
+    { name:'Plank to downdog',          phases:[1,2,3],   muscles:['Core','Shoulders'],            cues:['From plank, push hips up into downward dog','Alternate: plank 2s, downdog 2s','Opens shoulders and builds core stability'] },
+  ],
+};
+
+// Sets/reps per phase
+const PHASE_SETS = [
+  { sets:3, reps:12, circuitSets:3, circuitReps:12, rest:'60s' },  // Foundation
+  { sets:3, reps:10, circuitSets:3, circuitReps:15, rest:'60s' },  // Build
+  { sets:4, reps:8,  circuitSets:4, circuitReps:12, rest:'45s' },  // Strength
+  { sets:4, reps:6,  circuitSets:4, circuitReps:15, rest:'30s' },  // Peak
+];
+
+// Stable exercise selection per phase — picks a fixed subset so it doesn't shuffle each render
+function pickExercises(pool, phase, count) {
+  const available = pool.filter(e => e.phases.includes(phase));
+  // Use phase as seed for stable selection across the phase
+  const ordered = available.slice().sort((a,b) => a.name.localeCompare(b.name));
+  const result = [];
+  for (let i = 0; i < Math.min(count, ordered.length); i++) {
+    result.push(ordered[(phase * 2 + i) % ordered.length]);
+  }
+  return result;
+}
+
+function getTodayPlan() {
+  const dow = new Date().getDay(); // 0=Sun
+  const week = getWeekNumber();
+  const phase = getPhase(week);
+  const s = PHASE_SETS[phase];
+  const phaseInfo = PHASE_INFO[phase];
+
+  // Day type map: Mon=push, Tue=legs_squat, Wed=rest, Thu=pull, Fri=legs_hinge, Sat=circuit, Sun=rest
+  const dayMap = {
+    1: { type:'push',       label:'Upper body — push',    exCount:5 },
+    2: { type:'legs_squat', label:'Lower body — squat',   exCount:4 },
+    3: { type:'rest',       label:'Active rest — walk',   exCount:0 },
+    4: { type:'pull',       label:'Upper body — pull',    exCount:5 },
+    5: { type:'legs_hinge', label:'Lower body — hinge',   exCount:5 },
+    6: { type:'circuit',    label:'Full body circuit',    exCount:5 },
+    0: { type:'rest',       label:'Rest day',             exCount:0 },
   };
-  return animations[type] || animations.press;
+
+  const day = dayMap[dow];
+  const isCircuit = day.type === 'circuit';
+  const isRest = day.type === 'rest';
+
+  let exercises = [];
+  if (!isRest) {
+    const pool = EX_LIBRARY[day.type] || [];
+    const picked = pickExercises(pool, phase, day.exCount);
+    exercises = picked.map(ex => ({
+      ...ex,
+      sets: isCircuit ? s.circuitSets : s.sets,
+      reps: isCircuit ? s.circuitReps : s.reps,
+    }));
+  }
+
+  return {
+    name: day.label,
+    type: isRest ? 'Rest' : isCircuit ? 'Cardio+Strength' : 'Strength',
+    phase: phaseInfo.name,
+    phaseDesc: phaseInfo.desc,
+    phaseColor: phaseInfo.color,
+    week: week + 1,
+    rest: s.rest,
+    exercises,
+  };
+}
+const EXERCISE_DIAGRAMS = {
+  // Figure lying on bench, arms extended up holding dumbbells
+  'Dumbbell chest press': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <rect x="30" y="80" width="140" height="12" rx="4" fill="#9FE1CB"/>
+    <rect x="30" y="90" width="140" height="5" rx="2" fill="#5DCAA5"/>
+    <circle cx="100" cy="66" r="10" fill="#085041"/>
+    <line x1="100" y1="76" x2="100" y2="96" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="78" y1="96" x2="122" y2="96" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="96" x2="78" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="96" x2="122" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="78" y1="86" x2="55" y2="50" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="122" y1="86" x2="145" y2="50" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="42" y="43" width="22" height="9" rx="3" fill="#0F6E56"/>
+    <rect x="136" y="43" width="22" height="9" rx="3" fill="#0F6E56"/>
+    <text x="100" y="22" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Arms extended upward</text>
+  </svg>`,
+
+  // Standing figure, arms at sides then raised to shoulder height
+  'Shoulder press': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="20" r="10" fill="#085041"/>
+    <line x1="100" y1="30" x2="100" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="82" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="118" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="110" x2="78" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="110" x2="122" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="45" x2="68" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="68" y1="55" x2="60" y2="15" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="45" x2="132" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="132" y1="55" x2="140" y2="15" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="48" y="8" width="20" height="8" rx="3" fill="#0F6E56"/>
+    <rect x="132" y="8" width="20" height="8" rx="3" fill="#0F6E56"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Press overhead from shoulder height</text>
+  </svg>`,
+
+  // Standing, arms raised out to sides at shoulder height — T shape
+  'Lateral raises': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="20" r="10" fill="#085041"/>
+    <line x1="100" y1="30" x2="100" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="82" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="118" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="110" x2="78" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="110" x2="122" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="48" x2="48" y2="48" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="48" x2="152" y2="48" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="34" y="43" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <rect x="148" y="43" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Raise arms out to shoulder height</text>
+  </svg>`,
+
+  // Standing, one arm bent overhead holding dumbbell behind head
+  'Tricep extensions': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="20" r="10" fill="#085041"/>
+    <line x1="100" y1="30" x2="100" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="82" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="118" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="110" x2="78" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="110" x2="122" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="45" x2="115" y2="38" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="115" y1="38" x2="118" y2="15" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="15" x2="108" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round" stroke-dasharray="3,2"/>
+    <rect x="110" y="8" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Lower dumbbell behind head, extend up</text>
+  </svg>`,
+
+  // Plank position — body flat, arms straight
+  'Push-ups': `<svg viewBox="0 0 200 100" width="200" height="100">
+    <circle cx="38" cy="38" r="10" fill="#085041"/>
+    <line x1="38" y1="48" x2="160" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="38" y1="48" x2="32" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="32" y1="72" x2="28" y2="85" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="160" y1="60" x2="158" y2="78" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="158" y1="78" x2="168" y2="88" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="160" y1="60" x2="172" y2="78" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="172" y1="78" x2="180" y2="88" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="16" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Body straight, lower chest to floor</text>
+  </svg>`,
+
+  // Deep squat — knees bent, thighs parallel, holding dumbbell at chest
+  'Goblet squat': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="18" r="10" fill="#085041"/>
+    <line x1="100" y1="28" x2="100" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="86" y1="44" x2="114" y2="44" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="88" y="38" width="24" height="10" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="60" x2="72" y2="90" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="60" x2="128" y2="90" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="72" y1="90" x2="60" y2="118" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="128" y1="90" x2="140" y2="118" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="60" y1="118" x2="48" y2="125" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="140" y1="118" x2="152" y2="125" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="138" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Thighs parallel, chest tall</text>
+  </svg>`,
+
+  // Hinged forward at hips, flat back, weights hanging down
+  'Romanian deadlift': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <circle cx="55" cy="28" r="10" fill="#085041"/>
+    <line x1="55" y1="38" x2="100" y2="65" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="78" y1="52" x2="72" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="78" y1="52" x2="88" y2="70" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="62" y="68" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <rect x="78" y="66" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="65" x2="95" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="65" x2="115" y2="98" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="95" y1="100" x2="90" y2="120" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="115" y1="98" x2="120" y2="120" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="12" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Hinge at hips, flat back, weights down</text>
+  </svg>`,
+
+  // Lunge — one leg forward, one back, knee near floor
+  'Reverse lunges': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="90" cy="18" r="10" fill="#085041"/>
+    <line x1="90" y1="28" x2="90" y2="65" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="76" y1="46" x2="104" y2="46" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="90" y1="65" x2="72" y2="98" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="90" y1="65" x2="110" y2="95" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="72" y1="98" x2="65" y2="128" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="65" y1="128" x2="55" y2="132" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="110" y1="95" x2="130" y2="112" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="130" cy="116" r="5" fill="#9FE1CB" stroke="#085041" stroke-width="2"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Back knee near floor, front shin vertical</text>
+  </svg>`,
+
+  // Standing on toes — calf raise
+  'Calf raises': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="18" r="10" fill="#085041"/>
+    <line x1="100" y1="28" x2="100" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="86" y1="50" x2="114" y2="50" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="72" x2="85" y2="105" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="72" x2="115" y2="105" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="85" y1="105" x2="82" y2="118" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="118" x2="75" y2="122" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="115" y1="105" x2="118" y2="118" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="118" x2="125" y2="122" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="136" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Rise onto toes, lower fully</text>
+  </svg>`,
+
+  // Bent over one arm row — one knee on bench
+  'Dumbbell rows': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <rect x="100" y="78" width="60" height="10" rx="4" fill="#9FE1CB"/>
+    <circle cx="70" cy="32" r="10" fill="#085041"/>
+    <line x1="70" y1="42" x2="85" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="85" y1="55" x2="60" y2="62" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="60" y1="62" x2="48" y2="88" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="85" y1="55" x2="112" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="112" y1="60" x2="118" y2="88" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="85" y1="75" x2="120" y2="78" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="85" y1="55" x2="52" y2="52" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="52" y1="52" x2="38" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="28" y="66" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <text x="100" y="118" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Pull elbow back past your side</text>
+  </svg>`,
+
+  // Plank with one arm rowing — body horizontal
+  'Renegade rows': `<svg viewBox="0 0 200 100" width="200" height="100">
+    <circle cx="38" cy="32" r="10" fill="#085041"/>
+    <line x1="38" y1="42" x2="160" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="38" y1="42" x2="32" y2="68" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="32" y1="68" x2="26" y2="82" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="160" y1="55" x2="155" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="155" y1="75" x2="162" y2="88" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="160" y1="55" x2="168" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="168" y1="72" x2="175" y2="86" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="95" y1="49" x2="78" y2="28" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="66" y="21" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <text x="100" y="16" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Row one arm, keep hips square</text>
+  </svg>`,
+
+  // Standing curl — elbow pinned, forearm raised
+  'Bicep curls': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="18" r="10" fill="#085041"/>
+    <line x1="100" y1="28" x2="100" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="82" y2="112" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="118" y2="112" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="112" x2="78" y2="132" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="112" x2="122" y2="132" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="50" x2="72" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="72" y1="58" x2="65" y2="35" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="55" y="27" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="50" x2="128" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="128" y1="58" x2="132" y2="82" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="124" y="78" width="18" height="8" rx="3" fill="#9FE1CB" stroke="#085041" stroke-width="1"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Elbow pinned, curl to squeeze</text>
+  </svg>`,
+
+  // Face pull — arms pulling toward face, elbows high
+  'Face pulls (band/light DB)': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <circle cx="100" cy="30" r="10" fill="#085041"/>
+    <line x1="100" y1="40" x2="100" y2="80" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="80" x2="82" y2="112" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="80" x2="118" y2="112" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="112" x2="78" y2="125" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="112" x2="122" y2="125" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="55" x2="68" y2="42" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="68" y1="42" x2="45" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="55" x2="132" y2="42" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="132" y1="42" x2="155" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="14" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Pull to face, elbows high and wide</text>
+  </svg>`,
+
+  // Conventional deadlift — standing, bar at shins, hinge
+  'Deadlifts': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="80" cy="20" r="10" fill="#085041"/>
+    <line x1="80" y1="30" x2="95" y2="68" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="88" y1="50" x2="62" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="88" y1="50" x2="112" y2="56" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="52" y="54" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <rect x="104" y="52" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <line x1="95" y1="68" x2="88" y2="105" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="95" y1="68" x2="108" y2="102" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="88" y1="105" x2="84" y2="128" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="108" y1="102" x2="114" y2="126" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="140" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Hinge hips, chest up, drive through floor</text>
+  </svg>`,
+
+  // Single leg RDL — balanced on one leg, other extended back
+  'Single-leg RDL': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <circle cx="75" cy="22" r="10" fill="#085041"/>
+    <line x1="75" y1="32" x2="90" y2="65" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="83" y1="50" x2="58" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="83" y1="50" x2="108" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="48" y="54" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <rect x="100" y="51" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <line x1="90" y1="65" x2="86" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="86" y1="100" x2="82" y2="122" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="90" y1="65" x2="130" y2="62" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="130" y1="62" x2="155" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="118" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Balance on one leg, rear leg extends back</text>
+  </svg>`,
+
+  // Hip thrust — shoulders on bench, hips extended up
+  'Hip thrusts': `<svg viewBox="0 0 200 120" width="200" height="120">
+    <rect x="16" y="55" width="55" height="14" rx="4" fill="#9FE1CB"/>
+    <circle cx="42" cy="45" r="10" fill="#085041"/>
+    <line x1="42" y1="55" x2="55" y2="70" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="55" y1="62" x2="90" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="78" y="48" width="28" height="10" rx="3" fill="#0F6E56"/>
+    <line x1="90" y1="55" x2="118" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="90" y1="55" x2="105" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="72" x2="122" y2="96" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="105" y1="75" x2="138" y2="80" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="138" y1="80" x2="148" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="114" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Drive hips up, squeeze glutes at top</text>
+  </svg>`,
+
+  // Plank — forearms on ground, body straight
+  'Plank': `<svg viewBox="0 0 200 90" width="200" height="90">
+    <circle cx="30" cy="30" r="10" fill="#085041"/>
+    <line x1="30" y1="40" x2="165" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="30" y1="50" x2="55" y2="68" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="55" y1="68" x2="42" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="165" y1="55" x2="162" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="162" y1="72" x2="172" y2="80" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="165" y1="55" x2="175" y2="70" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="175" y1="70" x2="183" y2="80" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="18" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Straight line head to heel, brace core</text>
+  </svg>`,
+
+  // Kettlebell swing — hinge, weight between legs swinging forward
+  'Incline push-ups': `<svg viewBox="0 0 200 100" width="200" height="100">
+    <rect x="120" y="60" width="60" height="12" rx="4" fill="#9FE1CB"/>
+    <circle cx="38" cy="28" r="10" fill="#085041"/>
+    <line x1="38" y1="38" x2="155" y2="62" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="38" y1="38" x2="30" y2="62" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="30" y1="62" x2="24" y2="78" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="155" y1="62" x2="150" y2="76" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="155" y1="62" x2="162" y2="76" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="18" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Hands elevated — upper chest focus</text>
+  </svg>`,
+
+  'Arnold press': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="20" r="10" fill="#085041"/>
+    <line x1="100" y1="30" x2="100" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="82" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="118" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="110" x2="78" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="110" x2="122" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="48" x2="72" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="72" y1="58" x2="65" y2="40" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="48" x2="128" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="128" y1="55" x2="138" y2="18" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="56" y="33" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <rect x="130" y="11" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Rotate palms out as you press overhead</text>
+  </svg>`,
+
+  'Close-grip push-ups': `<svg viewBox="0 0 200 100" width="200" height="100">
+    <circle cx="38" cy="32" r="10" fill="#085041"/>
+    <line x1="38" y1="42" x2="160" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="38" y1="42" x2="32" y2="68" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="32" y1="68" x2="26" y2="82" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="90" y1="50" x2="88" y2="68" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="88" y1="68" x2="96" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="96" y1="72" x2="98" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="160" y1="55" x2="158" y2="74" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="158" y1="74" x2="168" y2="82" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="16" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Hands close together — tricep focus</text>
+  </svg>`,
+
+  'Hammer curls': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="18" r="10" fill="#085041"/>
+    <line x1="100" y1="28" x2="100" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="82" y2="112" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="118" y2="112" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="112" x2="78" y2="132" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="112" x2="122" y2="132" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="50" x2="72" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="72" y1="58" x2="68" y2="36" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="62" y="30" width="8" height="18" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="50" x2="128" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="128" y1="58" x2="132" y2="80" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="128" y="76" width="8" height="18" rx="3" fill="#9FE1CB" stroke="#085041" stroke-width="1"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Palms face each other — neutral grip</text>
+  </svg>`,
+
+  'Bent-over row': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <circle cx="62" cy="25" r="10" fill="#085041"/>
+    <line x1="62" y1="35" x2="100" y2="62" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="50" x2="55" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="50" x2="112" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="42" y="54" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <rect x="106" y="51" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="62" x2="92" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="62" x2="115" y2="96" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="92" y1="100" x2="86" y2="122" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="115" y1="96" x2="120" y2="120" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="14" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Hinge 45°, pull both dumbbells to ribs</text>
+  </svg>`,
+
+  'Reverse fly': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <circle cx="62" cy="25" r="10" fill="#085041"/>
+    <line x1="62" y1="35" x2="100" y2="62" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="50" x2="45" y2="42" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="50" x2="130" y2="42" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="32" y="37" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <rect x="124" y="37" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="62" x2="92" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="62" x2="115" y2="96" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="92" y1="100" x2="86" y2="122" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="115" y1="96" x2="120" y2="120" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="14" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Arms wide — pinch shoulder blades</text>
+  </svg>`,
+
+  'Sumo squat': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="18" r="10" fill="#085041"/>
+    <line x1="100" y1="28" x2="100" y2="62" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="86" y1="46" x2="114" y2="46" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="88" y="40" width="24" height="10" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="62" x2="62" y2="95" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="62" x2="138" y2="95" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="62" y1="95" x2="48" y2="125" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="138" y1="95" x2="152" y2="125" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="48" y1="125" x2="36" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="152" y1="125" x2="164" y2="130" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Wide stance, toes out — inner thigh focus</text>
+  </svg>`,
+
+  'Bulgarian split squat': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <rect x="130" y="88" width="50" height="10" rx="3" fill="#9FE1CB"/>
+    <circle cx="82" cy="18" r="10" fill="#085041"/>
+    <line x1="82" y1="28" x2="82" y2="65" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="70" y1="46" x2="94" y2="46" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="65" x2="60" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="60" y1="100" x2="52" y2="128" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="65" x2="105" y2="95" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="105" y1="95" x2="138" y2="88" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Rear foot elevated — front leg drives</text>
+  </svg>`,
+
+  'Jump squats': `<svg viewBox="0 0 200 140" width="200" height="140">
+    <circle cx="100" cy="14" r="10" fill="#085041"/>
+    <line x1="100" y1="24" x2="100" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="86" y1="42" x2="114" y2="42" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="60" x2="82" y2="88" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="60" x2="118" y2="88" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="88" x2="75" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="88" x2="125" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="75" y1="110" x2="68" y2="118" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="125" y1="110" x2="132" y2="118" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <path d="M85 130 Q100 118 115 130" stroke="#9FE1CB" stroke-width="2" fill="none" stroke-dasharray="4,3"/>
+    <text x="100" y="142" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Explode up — land softly, absorb impact</text>
+  </svg>`,
+
+  'Wall sit': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <rect x="155" y="10" width="10" height="120" rx="3" fill="#9FE1CB"/>
+    <circle cx="130" cy="22" r="10" fill="#085041"/>
+    <line x1="130" y1="32" x2="130" y2="68" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="130" y1="50" x2="155" y2="50" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="130" y1="68" x2="88" y2="90" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="130" y1="68" x2="148" y2="85" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="88" y1="90" x2="72" y2="118" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="148" y1="85" x2="155" y2="112" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="80" y="14" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Back flat, thighs parallel — hold</text>
+  </svg>`,
+
+  'Good mornings': `<svg viewBox="0 0 200 130" width="200" height="130">
+    <circle cx="62" cy="22" r="10" fill="#085041"/>
+    <line x1="62" y1="32" x2="100" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="55" y1="42" x2="100" y2="38" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="92" y="32" width="18" height="8" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="60" x2="92" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="60" x2="115" y2="96" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="92" y1="100" x2="86" y2="122" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="115" y1="96" x2="120" y2="120" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="14" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Hinge forward, flat back — hamstring stretch</text>
+  </svg>`,
+
+  'Glute bridges': `<svg viewBox="0 0 200 110" width="200" height="110">
+    <circle cx="42" cy="38" r="10" fill="#085041"/>
+    <line x1="42" y1="48" x2="60" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="60" y1="54" x2="100" y2="48" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <rect x="88" y="42" width="24" height="8" rx="3" fill="#0F6E56"/>
+    <line x1="100" y1="48" x2="128" y2="65" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="128" y1="65" x2="140" y2="92" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="128" y1="65" x2="148" y2="80" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="148" y1="80" x2="158" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="42" y1="60" x2="25" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="108" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Drive hips up — floor version of hip thrust</text>
+  </svg>`,
+
+  'Burpees': `<svg viewBox="0 0 200 110" width="200" height="110">
+    <circle cx="28" cy="20" r="9" fill="#085041"/>
+    <line x1="28" y1="29" x2="28" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="20" y1="42" x2="36" y2="42" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="28" y1="55" x2="18" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="28" y1="55" x2="38" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="52" y="38" font-size="16" fill="#9FE1CB">→</text>
+    <circle cx="100" cy="28" r="9" fill="#085041"/>
+    <line x1="100" y1="37" x2="165" y2="52" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="37" x2="92" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="165" y1="52" x2="158" y2="70" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="165" y1="52" x2="172" y2="68" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="95" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Stand → plank → push-up → jump up</text>
+  </svg>`,
+
+  'Mountain climbers': `<svg viewBox="0 0 200 100" width="200" height="100">
+    <circle cx="38" cy="28" r="10" fill="#085041"/>
+    <line x1="38" y1="38" x2="160" y2="55" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="38" y1="38" x2="32" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="32" y1="60" x2="26" y2="78" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="48" x2="88" y2="65" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="88" y1="65" x2="82" y2="80" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="160" y1="55" x2="152" y2="72" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="152" y1="72" x2="162" y2="84" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="160" y1="55" x2="168" y2="70" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="168" y1="70" x2="176" y2="84" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="16" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Plank — drive knees to chest alternating</text>
+  </svg>`,
+
+  'Plank to downdog': `<svg viewBox="0 0 200 110" width="200" height="110">
+    <circle cx="38" cy="28" r="9" fill="#085041"/>
+    <line x1="38" y1="37" x2="155" y2="52" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="38" y1="42" x2="30" y2="62" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="155" y1="52" x2="148" y2="70" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="155" y1="52" x2="162" y2="70" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="90" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Plank → push hips up to inverted V</text>
+  </svg>`,
+    <circle cx="72" cy="22" r="10" fill="#085041"/>
+    <line x1="72" y1="32" x2="90" y2="68" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="52" x2="55" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="52" x2="108" y2="58" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="55" y1="60" x2="48" y2="80" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="90" y1="68" x2="82" y2="105" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="90" y1="68" x2="105" y2="100" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="105" x2="76" y2="128" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="105" y1="100" x2="112" y2="124" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="48" cy="86" r="10" stroke="#0F6E56" stroke-width="2.5" fill="none"/>
+    <line x1="42" y1="86" x2="54" y2="86" stroke="#0F6E56" stroke-width="2" stroke-linecap="round"/>
+    <text x="100" y="140" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">Hip hinge — drive hips forward explosively</text>
+  </svg>`,
+};
+
+function makeFigureSVG(exerciseName) {
+  const svg = EXERCISE_DIAGRAMS[exerciseName];
+  if (svg) return svg;
+  // fallback — generic standing figure with label
+  return `<svg viewBox="0 0 200 130" width="200" height="130">
+    <circle cx="100" cy="22" r="10" fill="#085041"/>
+    <line x1="100" y1="32" x2="100" y2="75" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="82" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="75" x2="118" y2="110" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="82" y1="110" x2="78" y2="128" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="118" y1="110" x2="122" y2="128" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="50" x2="72" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="50" x2="128" y2="60" stroke="#085041" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="118" text-anchor="middle" font-size="10" fill="#085041" font-family="DM Sans,sans-serif">See form cues below</text>
+  </svg>`;
 }
 
 // ── STATE ──────────────────────────────────────────────────────────────
 let state = {
   weights: [],
-  meals: [],
+  meals: [],       // ALL meals across all days, keyed by date
   workoutSets: {},
+  activity: {},
+  water: {},       // { 'YYYY-MM-DD': number_of_glasses }
   weeklyReview: null,
   claudeNotice: null,
 };
 
 function todayKey() { return new Date().toISOString().slice(0,10); }
-function dayOfWeek() { return new Date().getDay(); } // 0=Sun
+function dayOfWeek() { return new Date().getDay(); }
+function todayMeals() { return (state.meals||[]).filter(m => m.date === todayKey()); }
 
-function save() { try { localStorage.setItem('fittrack_v1', JSON.stringify(state)); } catch(e){} }
+function save() { try { localStorage.setItem('fittrack_v2', JSON.stringify(state)); } catch(e){} }
 function load() {
   try {
-    const d = localStorage.getItem('fittrack_v1');
+    const d = localStorage.getItem('fittrack_v2');
     if (d) state = {...state, ...JSON.parse(d)};
   } catch(e){}
-  // filter to today's meals
-  state.meals = (state.meals||[]).filter(m => m.date === todayKey());
 }
 
 // ── HEADER ─────────────────────────────────────────────────────────────
@@ -592,7 +1220,55 @@ function logWeight() {
   fetchClaudeNotice();
 }
 
-function avgW(entry) {
+// ── ACTIVITY ───────────────────────────────────────────────────────────
+function logActivity() {
+  const steps = parseInt(document.getElementById('act-steps').value) || null;
+  const miles = parseFloat(document.getElementById('act-miles').value) || null;
+  const flights = parseInt(document.getElementById('act-flights').value) || null;
+  if (!steps && !miles && !flights) return;
+  const today = todayKey();
+  state.activity[today] = { steps, miles, flights };
+  save();
+  renderActivityDisplay();
+  document.getElementById('activity-saved').textContent = 'Saved!';
+  setTimeout(()=>document.getElementById('activity-saved').textContent='',2000);
+}
+
+function renderActivityDisplay() {
+  const today = todayKey();
+  const a = state.activity[today];
+  const el = document.getElementById('activity-display');
+  if (!a) { el.innerHTML=''; return; }
+  const items = [
+    a.steps ? `<div class="act-stat"><i class="ti ti-shoe"></i><div><div class="act-val">${a.steps.toLocaleString()}</div><div class="act-lbl">steps ${a.steps>=10000?'✓ goal!':a.steps>=7500?'almost there!':''}</div></div></div>` : '',
+    a.miles ? `<div class="act-stat"><i class="ti ti-map-2"></i><div><div class="act-val">${a.miles}</div><div class="act-lbl">miles</div></div></div>` : '',
+    a.flights ? `<div class="act-stat"><i class="ti ti-stairs"></i><div><div class="act-val">${a.flights}</div><div class="act-lbl">flights</div></div></div>` : '',
+  ].filter(Boolean).join('');
+  el.innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap">${items}</div>`;
+}
+
+
+function addWater(delta) {
+  const key = todayKey();
+  state.water[key] = Math.max(0, Math.min(12, (state.water[key]||0) + delta));
+  save();
+  renderWater();
+}
+
+function renderWater() {
+  const key = todayKey();
+  const count = state.water[key] || 0;
+  const el = document.getElementById('water-count');
+  const bubbles = document.getElementById('water-bubbles');
+  if (el) el.textContent = count;
+  if (bubbles) {
+    bubbles.innerHTML = Array(8).fill(0).map((_,i) =>
+      `<div style="width:28px;height:28px;border-radius:50%;background:${i<count?'var(--green-light)':'var(--bg)'};border:1.5px solid ${i<count?'var(--green-light)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:14px">${i<count?'💧':''}</div>`
+    ).join('');
+  }
+}
+
+
   if (entry.am && entry.pm) return (entry.am+entry.pm)/2;
   return entry.am || entry.pm;
 }
@@ -704,13 +1380,18 @@ function renderWorkout() {
   const plan = getTodayPlan();
   const hdr = document.getElementById('workout-header-card');
   hdr.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
       <div>
         <div class="card-title">${plan.name}</div>
-        <div class="card-sub">${plan.exercises.length} exercises${plan.exercises.length?` · tap any to see demo`:''}</div>
+        <div class="card-sub">${plan.exercises.length} exercises${plan.exercises.length?` · ${plan.rest} rest between sets`:''}</div>
       </div>
-      <span class="badge badge-${plan.type==='Rest'?'purple':plan.type==='Cardio'?'green':'amber'}">${plan.type}</span>
-    </div>`;
+      <span class="badge ${plan.phaseColor}">${plan.type}</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge badge-green">Week ${plan.week}</span>
+      <span class="badge badge-purple">Phase: ${plan.phase}</span>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-top:8px">${plan.phaseDesc}</div>`;
 
   const list = document.getElementById('exercise-list');
   if (!plan.exercises.length) {
@@ -740,7 +1421,7 @@ function renderWorkout() {
       <div class="ex-detail" id="exdetail-${ei}">
         <div class="ex-detail-inner">
           <div class="tags">${ex.muscles.map(m=>`<span class="muscle-tag">${m}</span>`).join('')}</div>
-          <div class="anim-stage">${makeFigureSVG(ex.anim)}</div>
+          <div class="anim-stage">${makeFigureSVG(ex.name)}</div>
           ${ex.cues.map(c=>`<div class="cue"><div class="cue-dot"></div><div>${c}</div></div>`).join('')}
           <div style="margin-top:10px;margin-bottom:4px;font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--text3);text-transform:uppercase">Sets</div>
           ${sets.map((s,si)=>`
@@ -858,28 +1539,146 @@ async function callClaude(prompt) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:300, messages:[{role:'user',content:prompt}] })
+    body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:300, messages:[{role:'user',content:prompt}] })
   });
   if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message||'API error'); }
   const data = await res.json();
   return data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
 }
 
-async function fetchClaudeNotice() {
-  const el = document.getElementById('claude-notice');
-  if (!state.weights.length) return;
-  el.innerHTML=`<div class="claude-bubble purple"><div class="claude-header purple"><i class="ti ti-sparkles"></i> Claude notice</div><div class="claude-loading">Checking in...</div></div>`;
-  const recent = state.weights.slice(-5).map(w=>`${w.date}:${avgW(w).toFixed(1)}kg`).join(', ');
-  const meals = state.meals.map(m=>m.name).join(', ') || 'none yet';
-  try {
-    const msg = await callClaude(`You are a fitness coach. A 23F is tracking weight loss from 75kg to 57kg by December. Recent weights: ${recent}. Today's meals: ${meals}. Write ONE short, warm, specific observation or tip (max 25 words). Could be encouragement, a warning about food choices, or a trend you notice. No greeting, no sign-off.`);
-    el.innerHTML=`<div class="claude-bubble purple"><div class="claude-header purple"><i class="ti ti-sparkles"></i> Claude notice</div><div class="claude-msg purple">${msg}</div></div>`;
-    state.claudeNotice = msg; save();
-  } catch(e){
-    if (e.message==='NO_KEY') {
-      el.innerHTML=`<div class="claude-bubble amber"><div class="claude-header amber"><i class="ti ti-key"></i> Add API key</div><div class="claude-msg amber">Add your Anthropic API key in Settings to get live Claude feedback here.</div></div>`;
-    } else { el.innerHTML=''; }
+// ── PROGRESS ANALYSIS ENGINE ───────────────────────────────────────────
+const DEADLINE = new Date('2026-12-01');
+
+function getProgressAnalysis() {
+  // How many weeks since start
+  const now = new Date();
+  const weekNum = getWeekNumber();
+  const weeksRemaining = Math.max(0, Math.ceil((DEADLINE - now) / (7*24*60*60*1000)));
+
+  // Required rate to hit goal from current weight
+  const latest = state.weights.length ? state.weights[state.weights.length-1] : null;
+  const currentWeight = latest ? avgW(latest) : START;
+  const remainingKg = Math.max(0, currentWeight - GOAL);
+  const requiredRate = weeksRemaining > 0 ? remainingKg / weeksRemaining : 0;
+
+  // Actual rate over last 2+ weeks
+  let actualRate = null;
+  if (state.weights.length >= 2) {
+    const oldest = state.weights[0];
+    const newest = state.weights[state.weights.length-1];
+    const daysDiff = (new Date(newest.date) - new Date(oldest.date)) / (24*60*60*1000);
+    const weeksDiff = daysDiff / 7;
+    if (weeksDiff >= 0.5) {
+      const kgLost = Math.max(0, avgW(oldest) - avgW(newest));
+      actualRate = kgLost / Math.max(weeksDiff, 0.5);
+    }
   }
+
+  // Where should they be right now?
+  const expectedByNow = START - (weekNum * 0.6);
+  const expectedLost = START - expectedByNow;
+  const actualLost = START - currentWeight;
+  const deficit = expectedLost - actualLost; // positive = behind schedule
+
+  let status, color;
+  if (actualRate === null) { status = 'new'; color = 'purple'; }
+  else if (deficit > 1.5)  { status = 'behind'; color = 'coral'; }
+  else if (deficit < -1.0) { status = 'ahead';  color = 'teal'; }
+  else                      { status = 'ontrack'; color = 'green'; }
+
+  return { status, color, currentWeight, remainingKg, requiredRate, actualRate, weeksRemaining, deficit, weekNum };
+}
+
+function buildProgressPrompt(analysis) {
+  const { status, currentWeight, remainingKg, requiredRate, actualRate, weeksRemaining, deficit, weekNum } = analysis;
+  const plan = getTodayPlan();
+  const recentWeights = state.weights.slice(-7).map(w=>`${w.date}:${avgW(w).toFixed(1)}kg`).join(', ');
+  const todayMealList = todayMeals().map(m=>m.name).join(', ') || 'not logged yet';
+  const totK = todayMeals().reduce((a,m)=>a+m.kcal,0);
+
+  const base = `You are a fitness coach. User: 23F, start 75kg, goal 57kg by Dec 1 2026.
+Current weight: ${currentWeight.toFixed(1)}kg. Week ${weekNum} of plan.
+Recent weights: ${recentWeights}.
+Actual loss rate: ${actualRate ? actualRate.toFixed(2)+'kg/week' : 'insufficient data'}.
+Required rate to hit goal: ${requiredRate.toFixed(2)}kg/week.
+Weeks remaining: ${weeksRemaining}.
+Behind/ahead schedule by: ${Math.abs(deficit).toFixed(1)}kg (${deficit>0?'behind':'ahead'}).
+Current phase: ${plan.phase}. Current calorie target: ${state.adjustedCalories||1550}kcal.
+Today's food: ${todayMealList} (${totK}kcal logged).`;
+
+  if (status === 'behind') {
+    return base + `\n\nShe is BEHIND schedule. Write a 3-part response:
+1. One honest, warm sentence about where she is vs goal (no sugarcoating but not harsh).
+2. A specific updated calorie target (between 1350–1500kcal) with one concrete meal swap to get there.
+3. One specific workout intensification for this week (e.g. "add a 20-min walk on rest days" or "add one extra set to all lower body exercises").
+Format as JSON only: {"notice":"...","newCalories":number,"dietTip":"...","workoutTip":"..."}`;
+  } else if (status === 'ahead') {
+    return base + `\n\nShe is AHEAD of schedule — losing faster than needed. Write a 3-part response:
+1. One encouraging sentence acknowledging the progress.
+2. A slightly increased calorie target (between 1600–1700kcal) to protect muscle — explain briefly.
+3. One suggestion to add a strength exercise this week to build muscle while in the surplus.
+Format as JSON only: {"notice":"...","newCalories":number,"dietTip":"...","workoutTip":"..."}`;
+  } else {
+    return base + `\n\nShe is ON TRACK. Write a 3-part response:
+1. One warm encouraging sentence confirming she's on track.
+2. One small diet optimisation tip for this week (protein, timing, or a specific swap).
+3. One specific thing to focus on in today's workout: ${plan.name}.
+Format as JSON only: {"notice":"...","newCalories":${state.adjustedCalories||1550},"dietTip":"...","workoutTip":"..."}`;
+  }
+}
+
+async function fetchProgressUpdate() {
+  const el = document.getElementById('claude-notice');
+  const analysis = getProgressAnalysis();
+
+  if (analysis.status === 'new') {
+    el.innerHTML=`<div class="claude-bubble purple"><div class="claude-header purple"><i class="ti ti-sparkles"></i> Claude</div><div class="claude-msg purple">Log a few days of weight and I'll start analysing your progress and adjusting your plan automatically.</div></div>`;
+    return;
+  }
+
+  const colorMap = { behind:'amber', ahead:'green', ontrack:'purple' };
+  const bubbleColor = colorMap[analysis.status] || 'purple';
+  el.innerHTML=`<div class="claude-bubble ${bubbleColor}"><div class="claude-header ${bubbleColor}"><i class="ti ti-sparkles"></i> Analysing your progress...</div><div class="claude-loading">Checking against your goal...</div></div>`;
+
+  try {
+    const raw = await callClaude(buildProgressPrompt(analysis));
+    const json = JSON.parse(raw.replace(/```json|```/g,'').trim());
+
+    // Apply updated calorie target
+    if (json.newCalories && json.newCalories !== (state.adjustedCalories||1550)) {
+      state.adjustedCalories = json.newCalories;
+      save();
+      // Update UI targets
+      document.getElementById('kcal-remain').textContent = Math.max(0, json.newCalories - todayMeals().reduce((a,m)=>a+m.kcal,0)) + ' remaining';
+    }
+
+    const statusLabel = { behind:'⚠️ Behind schedule', ahead:'🚀 Ahead of schedule', ontrack:'✅ On track' }[analysis.status];
+    const rateStr = analysis.actualRate ? `${analysis.actualRate.toFixed(2)} kg/week actual vs ${analysis.requiredRate.toFixed(2)} kg/week needed` : '';
+
+    el.innerHTML=`<div class="claude-bubble ${bubbleColor}">
+      <div class="claude-header ${bubbleColor}"><i class="ti ti-sparkles"></i> ${statusLabel}</div>
+      <div class="claude-msg ${bubbleColor}" style="margin-bottom:8px">${json.notice}</div>
+      ${rateStr ? `<div style="font-size:11px;opacity:.75;margin-bottom:8px">${rateStr}</div>` : ''}
+      <div style="background:rgba(0,0,0,0.06);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px">
+        <strong>🍽 Diet:</strong> ${json.dietTip}${json.newCalories !== (state.adjustedCalories||1550) ? ` <span style="font-weight:600">→ New target: ${json.newCalories} kcal</span>` : ''}
+      </div>
+      <div style="background:rgba(0,0,0,0.06);border-radius:8px;padding:8px 10px;font-size:12px">
+        <strong>🏋️ Workout:</strong> ${json.workoutTip}
+      </div>
+    </div>`;
+
+    state.claudeNotice = el.innerHTML; save();
+  } catch(e) {
+    if (e.message==='NO_KEY') {
+      el.innerHTML=`<div class="claude-bubble amber"><div class="claude-header amber"><i class="ti ti-key"></i> Add API key</div><div class="claude-msg amber">Add your Anthropic API key in Settings to get live progress analysis and plan adjustments.</div></div>`;
+    } else {
+      el.innerHTML=`<div class="claude-bubble amber"><div class="claude-header amber"><i class="ti ti-alert-triangle"></i> Error</div><div class="claude-msg amber">Couldn't connect to Claude. Check your API key in Settings.</div></div>`;
+    }
+  }
+}
+
+async function fetchClaudeNotice() {
+  await fetchProgressUpdate();
 }
 
 // ── DAILY REPORT ───────────────────────────────────────────────────────
@@ -890,7 +1689,9 @@ function sendDailyReport() {
   const mealList = state.meals.map(m=>m.name).join(', ') || 'none logged';
   const weightStr = latest ? `AM: ${latest.am||'—'} PM: ${latest.pm||'—'} (avg ${avgW(latest).toFixed(1)}kg)` : 'not logged';
   const allWeights = state.weights.slice(-7).map(w=>`${w.date}:${avgW(w).toFixed(1)}kg`).join(', ');
-  const url = `https://claude.ai/new?q=${encodeURIComponent(`Daily check-in for my fitness plan (goal: 75kg → 57kg by December).\n\nToday's weight: ${weightStr}\nLast 7 days: ${allWeights}\n\nToday's food: ${mealList}\nTotal: ${totK} kcal, ${totP}g protein (targets: 1550 kcal, 110g protein)\n\nPlease: 1) Feedback on today, 2) Tomorrow's meal suggestions, 3) Any adjustments needed.`)}`;
+  const actToday = state.activity[todayKey()];
+  const actStr = actToday ? `Steps: ${actToday.steps||'—'}, Miles: ${actToday.miles||'—'}, Flights: ${actToday.flights||'—'}` : 'not logged';
+  const url = `https://claude.ai/new?q=${encodeURIComponent(`Daily check-in for my fitness plan (goal: 75kg → 57kg by December).\n\nToday's weight: ${weightStr}\nLast 7 days: ${allWeights}\n\nToday's food: ${mealList}\nTotal: ${totK} kcal, ${totP}g protein (targets: 1550 kcal, 110g protein)\n\nToday's activity: ${actStr}\n\nPlease: 1) Feedback on today, 2) Tomorrow's meal suggestions, 3) Any adjustments needed.`)}`;
   window.open(url, '_blank');
 }
 
@@ -904,8 +1705,12 @@ function renderTodayWorkout() {
     return (state.workoutSets[exKey]||[]).every(s=>s.done) && (state.workoutSets[exKey]||[]).length>0;
   }).length;
   el.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+      <span class="badge badge-green" style="font-size:10px">Week ${plan.week}</span>
+      <span class="badge badge-purple" style="font-size:10px">${plan.phase}</span>
+    </div>
     <div class="card-title" style="margin-bottom:2px">${plan.name}</div>
-    <div class="card-sub" style="margin-bottom:8px">${plan.exercises.length?`${done} of ${plan.exercises.length} exercises done`:'Rest or walk day'}</div>
+    <div class="card-sub" style="margin-bottom:8px">${plan.exercises.length?`${done} of ${plan.exercises.length} exercises done · ${plan.rest} rest`:'Rest or walk day'}</div>
     ${plan.exercises.length ? `<div class="prog-track"><div class="prog-fill" style="width:${plan.exercises.length?(done/plan.exercises.length*100):0}%"></div></div>` : ''}
     <div style="margin-top:8px"><button class="btn btn-ghost" onclick="document.querySelector('.nav-btn:nth-child(3)').click()"><i class="ti ti-barbell"></i> Go to workout</button></div>`;
 }
@@ -967,13 +1772,39 @@ document.head.appendChild(style);
 // ── INIT ───────────────────────────────────────────────────────────────
 load();
 initHeader();
+
+// Pre-fill today's weight if already logged
+const _todayW = state.weights.find(w => w.date === todayKey());
+if (_todayW) {
+  if (_todayW.am) document.getElementById('am-weight').value = _todayW.am;
+  if (_todayW.pm) document.getElementById('pm-weight').value = _todayW.pm;
+}
+
+// Pre-fill today's water
+const _todayWater = state.water[todayKey()] || 0;
+renderWater();
+
 updateStats();
 renderMeals();
 updateMealTotals();
 renderTodayWorkout();
+renderActivityDisplay();
+
+// Pre-fill activity inputs if already saved today
+const _a = state.activity[todayKey()];
+if (_a) {
+  if (_a.steps) document.getElementById('act-steps').value = _a.steps;
+  if (_a.miles) document.getElementById('act-miles').value = _a.miles;
+  if (_a.flights) document.getElementById('act-flights').value = _a.flights;
+}
+
 updateKeyStatusCard();
+
+// Restore last Claude notice or trigger fresh analysis
 if (state.claudeNotice) {
-  document.getElementById('claude-notice').innerHTML=`<div class="claude-bubble purple"><div class="claude-header purple"><i class="ti ti-sparkles"></i> Claude notice</div><div class="claude-msg purple">${state.claudeNotice}</div></div>`;
+  document.getElementById('claude-notice').innerHTML = state.claudeNotice;
+} else {
+  fetchProgressUpdate();
 }
 </script>
 </body>
